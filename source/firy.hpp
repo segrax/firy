@@ -41,6 +41,22 @@ namespace firy {
 		const uint16_t* wordBytes = (const uint16_t*)buffer;
 		return *wordBytes;
 	}
+	inline uint32_t readLEDWord(const void* buffer) {
+		const uint32_t* wordBytes = (const uint32_t*)buffer;
+		return *wordBytes;
+	}
+
+	inline uint16_t readBEWord(const void* buffer) {
+		const uint8_t* bytes = (const uint8_t*)buffer;
+
+		return uint16_t((bytes[0] << 8) + bytes[1]);
+	}
+
+	inline uint32_t readBEDWord(const void* buffer) {
+		const uint8_t* bytes = (const uint8_t*)buffer;
+
+		return uint32_t((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + (bytes[3]));
+	}
 
 	inline void writeLEWord(const void* buffer, uint16_t pValue) {
 		uint16_t* wordBytes = (uint16_t*)buffer;

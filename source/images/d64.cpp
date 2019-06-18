@@ -37,14 +37,10 @@ namespace firy {
 			return mFilesystem.lock()->filesystemRead(shared_from_this());
 		}
 
-		cDisk::cDisk() : cImage(), cTracks(), cInterface(), enable_shared_from_this() {
-
-		}
-
 		/**
 		 * D64 Constructor
 		 */
-		cD64::cD64() : cDisk() {
+		cD64::cD64() : cDisk<interfaces::cTracks>() {
 
 			mTrackCount = 35;
 		}
@@ -83,6 +79,9 @@ namespace firy {
 			return true;
 		}
 
+		/**
+		 * Load a file off the D64
+		 */
 		spBuffer cD64::filesystemRead(spNode pNode) {
 			uint16_t bytesCopied = 0, copySize = gBytesPerSector;
 			spD64File File = std::dynamic_pointer_cast<sD64File>(pNode);
@@ -97,7 +96,7 @@ namespace firy {
 			buffer->resize(File->mSizeInBytes);
 			uint8_t* destBuffer = buffer->data();
 
-			for( auto& ts : File->mChain) {
+			for (auto& ts : File->mChain) {
 				bool noCopy = false;
 
 				uint8_t* sectorptr = getBufferPtr(sectorOffset(ts));
@@ -130,17 +129,35 @@ namespace firy {
 			return buffer;
 		}
 
-		spBuffer cD64::trackRead(const tTrackSector pTrack) {
-			auto sectorBuffer = getBufferPtr(sectorOffset(pTrack));
-			auto sectors = sectorCount(pTrack.first);
+		/**
+		 * Read an entire track
+		 */
+		spBuffer cD64::trackRead(const tTrack pTrack) {
+			auto sectorBuffer = getBufferPtr(trackOffset(pTrack));
+			if (!sectorBuffer)
+				return {};
 
 			auto buffer = std::make_shared<tBuffer>();
-			buffer->insert(buffer->begin(), sectorBuffer, sectorBuffer + (sectors * sectorSize()));
-
+			buffer->insert(buffer->begin(), sectorBuffer, sectorBuffer + trackSize(pTrack));
 			return buffer;
 		}
 
-		bool cD64::trackWrite(const tTrackSector pBlock, const spBuffer pBuffer) {
+		bool cD64::trackWrite(const tTrack pBlock, const spBuffer pBuffer) {
+
+			return false;
+		}
+
+		spBuffer cD64::sectorRead(const tTrackSector pTS) {
+			auto sectorBuffer = getBufferPtr(sectorOffset(pTS));
+			if (!sectorBuffer)
+				return {};
+
+			auto buffer = std::make_shared<tBuffer>();
+			buffer->insert(buffer->begin(), sectorBuffer, sectorBuffer + sectorSize(pTS.first));
+			return buffer;
+		}
+
+		bool cD64::sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) {
 
 			return false;
 		}

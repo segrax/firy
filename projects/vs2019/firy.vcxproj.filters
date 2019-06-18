@@ -57,6 +57,9 @@
     <ClInclude Include="..\..\source\images\disk.hpp">
       <Filter>Source Files\images</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\images\adf.hpp">
+      <Filter>Source Files\images</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">
@@ -76,6 +79,15 @@
     </ClCompile>
     <ClCompile Include="..\..\source\filesystem\interface.cpp">
       <Filter>Source Files\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\images\disk.cpp">
+      <Filter>Source Files\images</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\interfaces\blocks.cpp">
+      <Filter>Source Files\interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\images\adf.cpp">
+      <Filter>Source Files\images</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

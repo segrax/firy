@@ -43,6 +43,17 @@ namespace firy {
 		return true;
 	}
 
+	bool cResources::FileSave(const std::string& pFile, const spBuffer pData) {
+
+		std::ofstream outfile(pFile, std::ofstream::binary);
+		if (!outfile.is_open())
+			return false;
+
+		outfile.write((const char*) pData->data(), pData->size());
+		outfile.close();
+		return true;
+	}
+
 	bool cResources::FileExists(const std::string& pPath) const {
 		struct stat info;
 

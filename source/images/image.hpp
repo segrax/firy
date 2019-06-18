@@ -7,8 +7,8 @@ namespace firy {
 
 			cImage();
 
-			bool imageOpen(const std::string pFile);
-			void imageClose();
+			virtual bool imageOpen(const std::string pFile);
+			virtual void imageClose();
 
 			/**
 			 * Get a pointer to our buffer

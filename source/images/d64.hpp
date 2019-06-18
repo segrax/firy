@@ -26,29 +26,29 @@ namespace firy {
 		/**
 		 * Commodore 64: Disk Image (D64)
 		 */
-		class cD64 : public cDisk {
+		class cD64 : public cDisk<interfaces::cTracks> {
 
 		public:
-
 			cD64();
 
 			virtual bool filesystemPrepare();
-			spBuffer filesystemRead(spNode pFile);
+			virtual spBuffer filesystemRead(spNode pFile);
 
-			virtual spBuffer trackRead(const tTrackSector pTrack);
-			virtual bool trackWrite(const tTrackSector pBlock, const spBuffer pBuffer);
+			virtual spBuffer trackRead(const tTrack pTrack);
+			virtual bool trackWrite(const tTrack pTrack, const spBuffer pBuffer);
+
+			virtual spBuffer sectorRead(const tTrackSector pTS);
+			virtual bool sectorWrite(const tTrackSector pTS, const spBuffer pBuffer);
 
 			virtual tSector sectorCount(const tTrack pTrack = 0) const;
 			virtual size_t sectorSize(const tTrack pTrack = 0) const;
 
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
-
 			virtual spD64File filesystemEntryProcess(const uint8_t* pBuffer);
 
 		private:
 
-			
 		};
 
 

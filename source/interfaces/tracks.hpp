@@ -19,14 +19,14 @@ namespace firy {
 			cTracks();
 
 			/**
-			 * Read the provided T/S
+			 * Read the provided track
 			 */
-			virtual spBuffer trackRead(const tTrackSector pTS) = 0;
+			virtual spBuffer trackRead(const tTrack pTrack) = 0;
 
 			/**
-			 * Write 'pBuffer' at provided T/S
+			 * Write 'pBuffer' at provided track
 			 */
-			virtual bool trackWrite(const tTrackSector pTS, const spBuffer pBuffer) = 0;
+			virtual bool trackWrite(const tTrack pTrack, const spBuffer pBuffer) = 0;
 
 			/**
 			 * Number of tracks
@@ -37,6 +37,16 @@ namespace firy {
 			 * Number of bytes per track
 			 */
 			virtual size_t trackSize(const tTrack pTrack = 0) const;
+			
+			/**
+			 * Read the provided T/S
+			 */
+			virtual spBuffer sectorRead(const tTrackSector pTS) = 0;
+
+			/**
+			 * Write 'pBuffer' at provided T/S
+			 */
+			virtual bool sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) = 0;
 
 			/**
 			 * Number of sectors per track
@@ -53,7 +63,7 @@ namespace firy {
 			/**
 			 * Get the offset from the start of the image, to the track
 			 */
-			virtual size_t trackOffset(const tTrackSector pTrack) const;
+			virtual size_t trackOffset(const tTrack pTrack) const;
 			
 			/**
 			 * Get the offset from the start of the image, to the track/sector

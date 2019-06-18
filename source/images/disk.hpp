@@ -1,13 +1,21 @@
 namespace firy {
 	namespace images {
 
-		class cDisk : public images::cImage,
-			public interfaces::cTracks,
+		template <class tAccessInterface> class cDisk : 
+			public images::cImage,
+			public tAccessInterface,
 			public filesystem::cInterface,
-			public std::enable_shared_from_this<cDisk> {
+			public std::enable_shared_from_this<cDisk<tAccessInterface>> {
 
 		public:
-			cDisk();
+
+			cDisk() :
+				cImage(),
+				tAccessInterface(),
+				cInterface(),
+				std::enable_shared_from_this<cDisk<tAccessInterface>>() {
+
+			};
 		};
 	}
 }
