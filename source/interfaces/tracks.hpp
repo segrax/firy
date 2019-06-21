@@ -18,15 +18,17 @@ namespace firy {
 			 */
 			cTracks();
 
+			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const = 0;
+
 			/**
 			 * Read the provided track
 			 */
-			virtual spBuffer trackRead(const tTrack pTrack) = 0;
+			virtual spBuffer trackRead(const tTrack pTrack) const;
 
 			/**
 			 * Write 'pBuffer' at provided track
 			 */
-			virtual bool trackWrite(const tTrack pTrack, const spBuffer pBuffer) = 0;
+			virtual bool trackWrite(const tTrack pTrack, const spBuffer pBuffer);
 
 			/**
 			 * Number of tracks
@@ -41,12 +43,12 @@ namespace firy {
 			/**
 			 * Read the provided T/S
 			 */
-			virtual spBuffer sectorRead(const tTrackSector pTS) = 0;
+			virtual spBuffer sectorRead(const tTrackSector pTS) const;
 
 			/**
 			 * Write 'pBuffer' at provided T/S
 			 */
-			virtual bool sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) = 0;
+			virtual bool sectorWrite(const tTrackSector pTS, const spBuffer pBuffer);
 
 			/**
 			 * Number of sectors per track

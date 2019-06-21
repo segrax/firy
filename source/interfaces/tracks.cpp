@@ -44,6 +44,35 @@ namespace firy {
 
 			return offset;
 		}
+		
+		/**
+		 * Read a track
+		 */
+		spBuffer cTracks::trackRead(const tTrack pTrack) const {
+			return imageBufferCopy(trackOffset(pTrack), trackSize(pTrack));
+		}
+
+		/**
+		 * Write a track
+		 */
+		bool cTracks::trackWrite(const tTrack pTrack, const spBuffer pBuffer) {
+			// TODO
+			return false;
+		}
+		/**
+		 * Read a sector
+		 */
+		spBuffer cTracks::sectorRead(const tTrackSector pTS) const {
+			return imageBufferCopy(sectorOffset(pTS), sectorSize(pTS.first));
+		}
+
+		/**
+		 * Write a sector
+		 */
+		bool cTracks::sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) {
+			// TODO
+			return false;
+		}
 
 		/**
 		 * Get the offset from the start of the image, to the track/sector

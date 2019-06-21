@@ -20,8 +20,52 @@ int main()
 	auto track = D64->trackRead(18);
 
 	firy::gResources->FileSave("d:\\test", track);*/
+	/*{
+		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
+		ADF->imageOpen("Mo_Utes.adf");
+		ADF->filesystemPrepare();
+		auto path = ADF->filesystemPath("/");
+		std::cout << "Label: " << ADF->filesystemNameGet() << "\n";
 
+		for (auto& entry : path->mNodes) {
+			std::cout << entry->mName << "\n";
+		}
+
+		auto file = ADF->filesystemFile("/S/startup-sequence");
+		auto data = file->read();
+		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
+		std::cout << std::string((char*)data->data(), data->size());
+	}*/
+	/*
+	{
 	std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-	ADF->imageOpen("Mo_Utes.adf");
+	ADF->imageOpen("test.adf");
 	ADF->filesystemPrepare();
+	auto path = ADF->filesystemPath("/");
+
+	for (auto& entry : path->mNodes) {
+		std::cout << entry->mName << "\n";
+	}
+
+	auto file = ADF->filesystemFile("/Solution");
+	auto data = file->read();
+	std::cout << std::string((char*)data->data(), data->size());
+	}*/
+	
+	{
+		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
+		ADF->imageOpen("hardone.hdf");
+		ADF->filesystemPrepare();
+		auto path = ADF->filesystemPath("/Games/");
+
+		if (path) {
+			for (auto& entry : path->mNodes) {
+				std::cout << entry->mName << "\n";
+			}
+		}
+
+		//auto file = ADF->filesystemFile("/Solution");
+		//auto data = file->read();
+		//std::cout << std::string((char*)data->data(), data->size());
+	}
 }

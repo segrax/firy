@@ -10,9 +10,10 @@ namespace firy {
 		class cBlocks {
 		public:
 			cBlocks();
+			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const = 0;
 
-			virtual spBuffer blockRead(const tBlock pBlock) = 0;
-			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer) = 0;
+			virtual spBuffer blockRead(const tBlock pBlock);
+			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer);
 
 			/**
 			 * Number of sectors per track

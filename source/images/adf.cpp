@@ -76,6 +76,18 @@ namespace firy {
 		 */
 		const size_t gBytesPerBlock = 512;
 
+		sADFFile::sADFFile(wpFilesystem pFilesystem) : sEntry(), sFile(pFilesystem) {
+
+		}
+
+		spBuffer sADFFile::read() {
+			return mFilesystem.lock()->filesystemRead(shared_from_this());
+		}
+
+		sADFDir::sADFDir(wpFilesystem pFilesystem) : sEntry(), sDirectory(pFilesystem) {
+
+		}
+		
 		cADF::cADF() : cDisk<interfaces::cBlocks>() {
 			mBlockSize = gBytesPerBlock;
 
@@ -84,37 +96,214 @@ namespace firy {
 			mBlockRoot = 0;
 		}
 
+		/**
+		 * Generate the checksum for a bootblock
+		 */
+		uint32_t cADF::blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen) {
+			int32_t d, newSum = 0;
+			for (size_t i = 0; i < 256; i++) {
+				if (i != 1) {
+					d = readBEDWord(pBuffer + i * 4);
+					if ((0xffffffffU - newSum) < d)
+						newSum++;
+					newSum += d;
+				}
+			}
+			return(~newSum);
+		}
+
+		/**
+		 * Generate the checksum for a regular block, skipping the checksum field
+		 */
 		uint32_t cADF::blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen) {
 			int32_t newsum = 0;
 			for (size_t i = 0; i < (pBufferLen / 4); i++)
-				if (i != (20 / 4))
+				if (i != (20 / 4))	// Skip checksum
 					newsum += readBEDWord(pBuffer + i * 4);
 
 			return -newsum;
 		}
 
+		/**
+		 * Load the filesystem metadata
+		 */
 		bool cADF::filesystemPrepare() {
-
 			if (!blockBootLoad())
 				return false;
 			if (!blockRootLoad())
 				return false;
 
 
+			auto Root = std::make_shared<sADFDir>(weak_from_this());
+			Root->mBlock = mBlockRoot;
 
+			mFsRoot = Root;
+			return entrysLoad(Root);
+		}
+
+		/**
+		 * Load the contents of a directory
+		 */
+		bool cADF::entrysLoad(spADFDir pDir) {
+			auto block = blockLoad<adf::sEntryBlock>(pDir->mBlock);
+			if (!block)
+				return false;
+
+			for (auto& hash : block->hashTable) {
+				if (hash) {
+					auto entry = entryLoad(hash);
+					if (!entry) {
+						// TODO: Error
+						continue;
+					}
+					pDir->mNodes.push_back(entry);
+
+					// Load any further files with a matching hash
+					tBlock nextSector = std::dynamic_pointer_cast<sEntry>(entry)->mNextSameHash;
+					while (nextSector) {
+						auto entry = entryLoad(nextSector);
+						if (!entry) {
+							// TODO: Error
+							break;
+						}
+
+						pDir->mNodes.push_back(entry);
+						nextSector = std::dynamic_pointer_cast<sEntry>(entry)->mNextSameHash;
+					}
+				}
+			}
 			return true;
 		}
 
+		/**
+		 * Load an entry
+		 */
+		spNode cADF::entryLoad(const tBlock pBlock) {
+			auto blockEntry = blockLoad<adf::sEntryBlock>(pBlock);
+			if (!blockEntry) {
+				// TODO: Record error
+				return 0;
+			}
+
+			spNode node;
+			sEntry* entry = 0;
+
+			switch (blockEntry->secType) {
+			case 1:		// ST_ROOT
+				return 0;
+			case 2: 	// ST_DIR
+			case 4:	{	// ST_LDIR
+				auto Dir = std::make_shared<sADFDir>(weak_from_this());
+				node = Dir;
+				entry = Dir.operator->();
+				entry->mReal = blockEntry->realEntry;
+				break;
+			}
+
+			case 3:		// ST_LSOFT
+			case -3: 	// ST_FILE
+			case -4: {	// ST_LFILE
+				auto File = std::make_shared<sADFFile>(weak_from_this());
+				node = File;
+				entry = File.operator->();
+				entry->mReal = blockEntry->realEntry;
+				break;
+			}
+			
+			default:
+				return 0;	// TODO
+				break;
+			}
+
+			entry->mType = blockEntry->secType;
+			entry->mParent = blockEntry->parent;
+
+			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, MAXNAMELEN));
+
+
+			//adfDays2Date(entryBlk->days, &(entry->year), &(entry->month), &(entry->days));
+			entry->hour = blockEntry->mins / 60;
+			entry->mins = blockEntry->mins % 60;
+			entry->secs = blockEntry->ticks / 50;
+
+			entry->mBlock = pBlock;
+			entry->mNextSameHash = blockEntry->nextSameHash;
+
+			if(blockEntry->secType == 2)
+				entrysLoad(std::dynamic_pointer_cast<sADFDir>(node));
+
+			return node;
+		}
+
 		spBuffer cADF::filesystemRead(spNode pFile) {
-			return {};
-		}
+			spADFFile File = std::dynamic_pointer_cast<sADFFile>(pFile);
+			if (!File)
+				return {};
 
-		spBuffer cADF::blockRead(const tBlock pBlock) {
-			return {};
-		}
+			auto blockFile = blockLoad< sFileHeaderBlock>(File->mBlock);
+			size_t totalbytes = blockFile->byteSize;
 
-		bool cADF::blockWrite(const tBlock pBlock, const spBuffer pBuffer) {
-			return false;
+			spBuffer buffer = std::make_shared<tBuffer>();
+			buffer->resize(blockFile->byteSize);
+			uint8_t *destptr = buffer->data();
+
+			// Old 1.2 Filesystem
+			if (!(mBootBlock->dosType[3] & eFlags::FFS)) {
+				tBlock currentblock = blockFile->firstData;
+				int count = 1;
+
+				while (currentblock) {
+					auto block = blockLoad<sOFSDataBlock>(currentblock);
+
+					memcpy(destptr, block->data, block->dataSize);
+					destptr += block->dataSize;
+					totalbytes -= block->dataSize;
+					if (!totalbytes)
+						return buffer;
+
+					if (block->seqNum + 1 != ++count) {
+						// TODO: Error (Sequence is wrong)
+						return {};
+					}
+					currentblock = block->nextData;
+				}
+
+			} else {
+				for (int index = MAX_DATABLK-1; index >= 0; --index) {
+					if (!blockFile->dataBlocks[index])
+						break;
+
+					auto block = getBufferPtr(blockFile->dataBlocks[index] * blockSize());
+					auto size = min(totalbytes, blockSize());
+					memcpy(destptr, block, size);
+					destptr += size;
+					totalbytes -= size;
+				}
+
+				tBlock nextSector = blockFile->extension;
+				while (nextSector) {
+					auto blockExt = blockLoad<sFileExtBlock>(nextSector);
+					if (!blockExt) {
+						// TODO: Error
+						break;
+					}
+
+					for (int index = MAX_DATABLK - 1; index >= 0; --index) {
+						if (!blockExt->dataBlocks[index])
+							break;
+
+						auto block = getBufferPtr(blockExt->dataBlocks[index] * blockSize());
+						auto size = min(totalbytes, blockSize());
+						memcpy(destptr, block, size);
+						destptr += size;
+						totalbytes -= size;
+					}
+
+					nextSector = blockExt->extension;
+				}
+			}
+
+			return buffer;
 		}
 
 		size_t cADF::blockSize(const tBlock pBlock) const {
@@ -122,8 +311,7 @@ namespace firy {
 		}
 
 		adf::eType cADF::diskType() const {
-
-			if ((mBuffer->size() >= 512 * 11 * 2 * 80) ||
+			if ((mBuffer->size() >= 512 * 11 * 2 * 80) &&
 				(mBuffer->size() <= 512 * 11 * 2 * 83))
 				return(eType::FLOPPY_DD);
 
@@ -136,57 +324,96 @@ namespace firy {
 			return eType::UNKNOWN;
 		}
 
+		std::string cADF::filesystemNameGet() const {
+			return std::string(mRootBlock->diskName, mRootBlock->nameLen);
+		}
+
 		bool cADF::filesystemChainLoad(spFile pFile) {
 			return false;
 		}
-		bool cADF::blockBootLoad() {
-			memcpy((void*)& mBootBlock, getBufferPtr(0), sizeof(adf::sBootBlock));
-			swapEndian((uint8_t*)& mBootBlock, 0);
 
-			if (!(mBootBlock.dosType[3] & eFlags::FFS))
+		bool cADF::blockBootLoad() {
+			mBootBlock = blockLoad<adf::sBootBlock>(0);
+			if (!mBootBlock)
+				return false;
+
+			// Original AmigaDOS 1.2 FS
+			if (!(mBootBlock->dosType[3] & eFlags::FFS))
 				mBlockSize = 488;
 
 			return true;
 		}
 
+		/**
+		 * Locate and load the root block
+		 */
 		bool cADF::blockRootLoad() {
-
 			switch (diskType()) {
 			case adf::eType::FLOPPY_HD:
-				return blockRootFloppyLoad(12);
-
+				mBlockLast = (80 * 2 * 12) - 1;
+				break;
 			case adf::eType::FLOPPY_DD:
-				return blockRootFloppyLoad(11);
-
+				mBlockLast = (80 * 2 * 11) - 1;
+				break;
 			case adf::eType::HARDDRIVE:
-				return blockRootHarddriveLoad();
-
+				mBlockLast = (mBuffer->size() / 512) - 1;
+				break;
 			default:
 				return false;
 			}
+
+			mBlockFirst = 0;
+			mBlockRoot = (mBlockLast + 1 - mBlockFirst) / 2;
+			mRootBlock = blockLoad<adf::sRootBlock>(mBlockRoot);
+			return (mRootBlock != 0);
 		}
 
-		bool cADF::blockRootFloppyLoad(const tBlock pSectors) {
-			mBlockFirst = 0;
-			mBlockLast = (80 * 2 * pSectors) - 1;
-			mBlockRoot = (mBlockLast + 1 - mBlockFirst) / 2;
+		/**
+		 * Read a block
+		 */
+		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoad(const size_t pBlock) {
+			auto block = imageObjectGet<tBlockType>(pBlock * blockSize());
+			if (!block)
+				return 0;
 
-			auto blockPtr = getBufferPtr(mBlockRoot * blockSize());
+			//  Checksum is generated before endian swap
+			auto checksum = blockChecksum((const uint8_t*)block.get(), gBytesPerBlock);
 
-			memcpy((void*)& mRootBlock, blockPtr, sizeof(adf::sRootBlock));
-			swapEndian((uint8_t*)& mRootBlock, 1);
+			if (typeid(tBlockType) == typeid(adf::sBootBlock)) {
+				adf::sBootBlock* blockptr = (adf::sBootBlock*)block.get();
 
-			auto checksum = blockChecksum(blockPtr, gBytesPerBlock);
-			if (checksum != mRootBlock.checkSum) {
-				std::cout << "Block checksum fail\n";
-				return false;
+				checksum = blockBootChecksum((const uint8_t*)block.get(), gBytesPerBlock);
+				swapEndian((uint8_t*)block.get(), 0);
+
+				if (blockptr->data[0] != 0) {
+					if (checksum != block->checkSum) {
+						std::cout << "Block checksum fail\n";
+						return 0;
+					}
+				}
+				return block;
 			}
 
-			return true;
-		}
+			if(typeid(tBlockType) == typeid(adf::sRootBlock))
+				swapEndian((uint8_t*)block.get(), 1);
 
-		bool cADF::blockRootHarddriveLoad() {
-			return false;
+			if (typeid(tBlockType) == typeid(adf::sEntryBlock))
+				swapEndian((uint8_t*)block.get(), 3);
+
+			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock))
+				swapEndian((uint8_t*)block.get(), 3);
+
+			if (typeid(tBlockType) == typeid(adf::sOFSDataBlock))
+				swapEndian((uint8_t*)block.get(), 2);
+			
+			if (typeid(tBlockType) == typeid(adf::sFileExtBlock))
+				swapEndian((uint8_t*)block.get(), 5);
+
+			if (checksum != block->checkSum) {
+				std::cout << "Block checksum fail\n";
+				return 0;
+			}
+			return block;
 		}
 	}
 }

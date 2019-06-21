@@ -31,14 +31,9 @@ namespace firy {
 		public:
 			cD64();
 
+			virtual std::string filesystemNameGet() const;
 			virtual bool filesystemPrepare();
 			virtual spBuffer filesystemRead(spNode pFile);
-
-			virtual spBuffer trackRead(const tTrack pTrack);
-			virtual bool trackWrite(const tTrack pTrack, const spBuffer pBuffer);
-
-			virtual spBuffer sectorRead(const tTrackSector pTS);
-			virtual bool sectorWrite(const tTrackSector pTS, const spBuffer pBuffer);
 
 			virtual tSector sectorCount(const tTrack pTrack = 0) const;
 			virtual size_t sectorSize(const tTrack pTrack = 0) const;

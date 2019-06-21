@@ -45,6 +45,12 @@ namespace firy {
 			mTrackCount = 35;
 		}
 
+		std::string cD64::filesystemNameGet() const {
+			uint8_t* sectorptr = getBufferPtr(sectorOffset(tTrackSector{ 18,1 }));
+
+			return stringRip(sectorptr + 0x90, 0xA0, 16);
+		}
+
 		/**
 		 * Load the D64 directory
 		 */
@@ -127,39 +133,6 @@ namespace firy {
 			}
 
 			return buffer;
-		}
-
-		/**
-		 * Read an entire track
-		 */
-		spBuffer cD64::trackRead(const tTrack pTrack) {
-			auto sectorBuffer = getBufferPtr(trackOffset(pTrack));
-			if (!sectorBuffer)
-				return {};
-
-			auto buffer = std::make_shared<tBuffer>();
-			buffer->insert(buffer->begin(), sectorBuffer, sectorBuffer + trackSize(pTrack));
-			return buffer;
-		}
-
-		bool cD64::trackWrite(const tTrack pBlock, const spBuffer pBuffer) {
-
-			return false;
-		}
-
-		spBuffer cD64::sectorRead(const tTrackSector pTS) {
-			auto sectorBuffer = getBufferPtr(sectorOffset(pTS));
-			if (!sectorBuffer)
-				return {};
-
-			auto buffer = std::make_shared<tBuffer>();
-			buffer->insert(buffer->begin(), sectorBuffer, sectorBuffer + sectorSize(pTS.first));
-			return buffer;
-		}
-
-		bool cD64::sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) {
-
-			return false;
 		}
 
 		tSector cD64::sectorCount(const tTrack pTrack) const {
