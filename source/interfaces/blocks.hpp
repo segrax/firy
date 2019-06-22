@@ -31,9 +31,8 @@ namespace firy {
 			 */
 			virtual std::vector<tBlock> blocksFree() const = 0;
 
-
 			/**
-			 * Number of bytes per sector
+			 * Number of bytes per block
 			 */
 			virtual size_t blockSize(const tBlock pBlock = 0) const = 0;
 

@@ -59,6 +59,7 @@ namespace firy {
 			 * Number of bytes per sector
 			 */
 			virtual size_t sectorSize(const tTrack pTrack = 0) const = 0;
+			virtual size_t blockSize(const tTrack pTrack = 0) const { return sectorSize(pTrack); };
 
 		protected:
 
