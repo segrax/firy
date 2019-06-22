@@ -29,6 +29,7 @@ namespace firy {
 			 * Load the T/S chain for a file
 			 */
 			virtual bool filesystemChainLoad(spFile pFile) = 0;
+			virtual bool filesystemBitmapLoad() = 0;
 
 			spDirectory mFsRoot;
 		};

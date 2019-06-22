@@ -4,8 +4,40 @@
 #include <fstream>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <filesystem>
+
+namespace std {
+	namespace filesystem = std::experimental::filesystem;
+}
 
 namespace firy {
+	std::string cResources::getcwd() {
+		return std::filesystem::current_path().string();
+	}
+
+	std::vector<std::string> cResources::directoryList(const std::string& pPath, const std::string& pExtension) {
+		std::vector<std::string> files;
+
+		std::filesystem::recursive_directory_iterator iter(pPath);
+		std::filesystem::recursive_directory_iterator end;
+
+		while (iter != end) {
+			std::error_code ec;
+			std::string file = iter->path().string();
+
+			if(file.find(pExtension) != file.npos)
+				files.push_back(file);
+
+			iter.increment(ec);
+			if (ec) {
+				// TODO
+				return files;
+			}
+		}
+
+		return files;
+	}
+
 	spBuffer cResources::FileRead(const std::string& pFile) {
 		auto fileBuffer = std::make_shared<tBuffer>();
 

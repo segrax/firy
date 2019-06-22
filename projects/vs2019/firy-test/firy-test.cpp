@@ -4,6 +4,38 @@
 #include "firy.hpp"
 #include "images/d64.hpp"
 #include "images/adf.hpp"
+#include <sstream>
+#include <iomanip>
+
+bool dumpfreeblocks(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std::string& pBaseFileName) {
+
+	for (auto& block : pDisk->blocksFree()) {
+		auto data = pDisk->blockRead(block);
+		if (!data) {
+
+			return false;
+		}
+		bool found = false;
+
+		for (auto bb : *data) {
+			if (bb) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			std::stringstream filename;
+			filename << pBaseFileName << "_";
+			filename << std::setw(4) << block;
+			filename << ".raw";
+
+			firy::gResources->FileSave(filename.str(), data);
+		}
+	}
+
+	return true;
+}
 
 int main()
 {
@@ -20,7 +52,7 @@ int main()
 	auto track = D64->trackRead(18);
 
 	firy::gResources->FileSave("d:\\test", track);*/
-	/*{
+	{
 		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
 		ADF->imageOpen("Mo_Utes.adf");
 		ADF->filesystemPrepare();
@@ -35,7 +67,7 @@ int main()
 		auto data = file->read();
 		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
 		std::cout << std::string((char*)data->data(), data->size());
-	}*/
+	}
 	/*
 	{
 	std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
@@ -52,10 +84,30 @@ int main()
 	std::cout << std::string((char*)data->data(), data->size());
 	}*/
 	
-	{
+	auto files = firy::gResources->directoryList(firy::gResources->getcwd(), "adf");
+
+	for (auto& file : files) {
 		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-		ADF->imageOpen("hardone.hdf");
+		ADF->imageOpen(file);
+		if (!ADF->filesystemPrepare()) {
+			std::cout << file << " failed\n";
+			continue;
+		}
+
+		auto name = file.substr(file.find_last_of("\\") + 1);
+		name = name.substr(0, name.size() - 4); // remove extension
+
+		dumpfreeblocks(ADF, "d://blocks//" + name);
+	}
+
+	/*{
+		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
+		ADF->imageOpen("Mo_Utes.adf");
+		//ADF->imageOpen("hardone.hdf");
 		ADF->filesystemPrepare();
+
+		dumpfreeblocks(ADF, "d://track");
+
 		auto path = ADF->filesystemPath("/Games/");
 
 		if (path) {
@@ -67,5 +119,5 @@ int main()
 		//auto file = ADF->filesystemFile("/Solution");
 		//auto data = file->read();
 		//std::cout << std::string((char*)data->data(), data->size());
-	}
+	}*/
 }

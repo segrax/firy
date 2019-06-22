@@ -30,19 +30,54 @@ namespace firy {
 				{ 4, SW_CHAR, 4, SW_LONG, 492, SW_CHAR, 0, 512 }             /* LSEG */
 			};
 
+			bool adfIsLeap(int y) {
+				return((bool)(!(y % 100) ? !(y % 400) : !(y % 4)));
+			}
+
+			void adfDays2Date(int32_t days, int* yy, int* mm, int* dd) {
+				int y, m;
+				int nd;
+				int jm[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+				/* 0 = 1 Jan 1978,  6988 = 18 feb 1997 */
+
+				/*--- year ---*/
+				y = 1978;
+				if (adfIsLeap(y))
+					nd = 366;
+				else
+					nd = 365;
+				while (days >= nd) {
+					days -= nd;
+					y++;
+					if (adfIsLeap(y))
+						nd = 366;
+					else
+						nd = 365;
+				}
+
+				/*--- month ---*/
+				m = 1;
+				if (adfIsLeap(y))
+					jm[2 - 1] = 29;
+				while (days >= jm[m - 1]) {
+					days -= jm[m - 1];
+					m++;
+				}
+
+				*yy = y;
+				*mm = m;
+				*dd = days + 1;
+			}
 
 			/*
 				* swapEndian
 				*
 				* magic :-) endian swap function (big -> little for read, little to big for write)
 				*/
-
 			void swapEndian(uint8_t* buf, int type) {
-				int i, j;
-				int p;
-
-				i = 0;
-				p = 0;
+				int i = 0, j = 0;
+				int p = 0;
 
 				while (swapTable[type][i] != 0) {
 					for (j = 0; j < swapTable[type][i]; j++) {
@@ -104,7 +139,7 @@ namespace firy {
 			for (size_t i = 0; i < 256; i++) {
 				if (i != 1) {
 					d = readBEDWord(pBuffer + i * 4);
-					if ((0xffffffffU - newSum) < d)
+					if ((0xffffffffU - newSum) < (uint32_t)d)
 						newSum++;
 					newSum += d;
 				}
@@ -115,10 +150,10 @@ namespace firy {
 		/**
 		 * Generate the checksum for a regular block, skipping the checksum field
 		 */
-		uint32_t cADF::blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen) {
+		uint32_t cADF::blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte) {
 			int32_t newsum = 0;
 			for (size_t i = 0; i < (pBufferLen / 4); i++)
-				if (i != (20 / 4))	// Skip checksum
+				if (i != (pChecksumByte / 4))	// Skip checksum
 					newsum += readBEDWord(pBuffer + i * 4);
 
 			return -newsum;
@@ -133,6 +168,8 @@ namespace firy {
 			if (!blockRootLoad())
 				return false;
 
+			if (!filesystemBitmapLoad())
+				return false;
 
 			auto Root = std::make_shared<sADFDir>(weak_from_this());
 			Root->mBlock = mBlockRoot;
@@ -220,8 +257,7 @@ namespace firy {
 
 			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, MAXNAMELEN));
 
-
-			//adfDays2Date(entryBlk->days, &(entry->year), &(entry->month), &(entry->days));
+			adfDays2Date(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
 			entry->hour = blockEntry->mins / 60;
 			entry->mins = blockEntry->mins % 60;
 			entry->secs = blockEntry->ticks / 50;
@@ -310,6 +346,37 @@ namespace firy {
 			return gBytesPerBlock;
 		}
 
+		bool cADF::blockIsFree(const tBlock pBlock) const {
+			int sectOfMap = pBlock - 2;
+			int block = sectOfMap / (127 * 32);
+			int indexInMap = (sectOfMap / 32) % 127;
+			static uint32_t bitMask[32] = {
+				0x1, 0x2, 0x4, 0x8,
+				0x10, 0x20, 0x40, 0x80,
+				0x100, 0x200, 0x400, 0x800,
+				0x1000, 0x2000, 0x4000, 0x8000,
+				0x10000, 0x20000, 0x40000, 0x80000,
+				0x100000, 0x200000, 0x400000, 0x800000,
+				0x1000000, 0x2000000, 0x4000000, 0x8000000,
+				0x10000000, 0x20000000, 0x40000000, 0x80000000 };
+
+			return ((mBitmapBlocks[block]->map[indexInMap]
+				& bitMask[sectOfMap % 32]) != 0);
+		}
+
+		std::vector<tBlock> cADF::blocksFree() const {
+			std::vector<tBlock> freeBlocks;
+			for (tBlock j = mBlockFirst + 2; j <= (mBlockLast - mBlockFirst); j++)
+				if (blockIsFree(j))
+					freeBlocks.push_back(j);
+
+			return freeBlocks;
+		}
+
+		std::shared_ptr<adf::sOFSDataBlock> cADF::blockReadOFS(const tBlock pBlock) {
+			return blockLoad<sOFSDataBlock>(pBlock);
+		}
+
 		adf::eType cADF::diskType() const {
 			if ((mBuffer->size() >= 512 * 11 * 2 * 80) &&
 				(mBuffer->size() <= 512 * 11 * 2 * 83))
@@ -330,6 +397,41 @@ namespace firy {
 
 		bool cADF::filesystemChainLoad(spFile pFile) {
 			return false;
+		}
+		
+		bool cADF::filesystemBitmapLoad() {
+
+			mBitmapBlocks.clear();
+
+			for (auto& page : mRootBlock->bmPages) {
+				if (page) {
+					auto block = blockLoad<sBitmapBlock>(page);
+					if (!block) {
+						std::cout << "bitmap block load error\n";
+						return false;
+					}
+					mBitmapBlocks.push_back(block);
+				}
+			}
+
+			auto blockBitmapExt = mRootBlock->bmExt;
+			while (blockBitmapExt) {
+				auto blockExt = blockLoadNoCheck<sBitmapExtBlock>(blockBitmapExt);
+				for(auto& page : blockExt->bmPages) {
+					if (page) {
+						auto block = blockLoad<sBitmapBlock>(page);
+						if (!block) {
+							std::cout << "bitmap block load error\n";
+							return false;
+						}
+						mBitmapBlocks.push_back(block);
+					}
+
+				}
+				blockBitmapExt = blockExt->nextBlock;
+			}
+
+			return true;
 		}
 
 		bool cADF::blockBootLoad() {
@@ -368,6 +470,42 @@ namespace firy {
 			return (mRootBlock != 0);
 		}
 
+		template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
+
+			if (typeid(tBlockType) == typeid(adf::sBootBlock))
+				swapEndian((uint8_t*)pBlock.get(), 0);
+
+			if (typeid(tBlockType) == typeid(adf::sRootBlock))
+				swapEndian((uint8_t*)pBlock.get(), 1);
+
+			if (typeid(tBlockType) == typeid(adf::sEntryBlock))
+				swapEndian((uint8_t*)pBlock.get(), 3);
+
+			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock))
+				swapEndian((uint8_t*)pBlock.get(), 3);
+
+			if (typeid(tBlockType) == typeid(adf::sOFSDataBlock))
+				swapEndian((uint8_t*)pBlock.get(), 2);
+
+			if (typeid(tBlockType) == typeid(adf::sFileExtBlock))
+				swapEndian((uint8_t*)pBlock.get(), 5);
+
+			if (typeid(tBlockType) == typeid(adf::sBitmapBlock))
+				swapEndian((uint8_t*)pBlock.get(), 5);
+
+			if (typeid(tBlockType) == typeid(adf::sBitmapExtBlock))
+				swapEndian((uint8_t*)pBlock.get(), 5);
+		}
+
+		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoadNoCheck(const size_t pBlock) {
+			auto block = imageObjectGet<tBlockType>(pBlock * blockSize());
+			if (!block)
+				return 0;
+
+			blockSwapEndian(block);
+			return block;
+		}
+
 		/**
 		 * Read a block
 		 */
@@ -383,31 +521,22 @@ namespace firy {
 				adf::sBootBlock* blockptr = (adf::sBootBlock*)block.get();
 
 				checksum = blockBootChecksum((const uint8_t*)block.get(), gBytesPerBlock);
-				swapEndian((uint8_t*)block.get(), 0);
+				blockSwapEndian(block);
 
 				if (blockptr->data[0] != 0) {
 					if (checksum != block->checkSum) {
 						std::cout << "Block checksum fail\n";
-						return 0;
+						//return 0;
 					}
 				}
 				return block;
 			}
 
-			if(typeid(tBlockType) == typeid(adf::sRootBlock))
-				swapEndian((uint8_t*)block.get(), 1);
+			if (typeid(tBlockType) == typeid(adf::sBitmapBlock)) {
+				checksum = blockChecksum((const uint8_t*)block.get(), gBytesPerBlock, 0);
+			}
 
-			if (typeid(tBlockType) == typeid(adf::sEntryBlock))
-				swapEndian((uint8_t*)block.get(), 3);
-
-			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock))
-				swapEndian((uint8_t*)block.get(), 3);
-
-			if (typeid(tBlockType) == typeid(adf::sOFSDataBlock))
-				swapEndian((uint8_t*)block.get(), 2);
-			
-			if (typeid(tBlockType) == typeid(adf::sFileExtBlock))
-				swapEndian((uint8_t*)block.get(), 5);
+			blockSwapEndian(block);
 
 			if (checksum != block->checkSum) {
 				std::cout << "Block checksum fail\n";

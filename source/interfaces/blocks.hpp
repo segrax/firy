@@ -13,12 +13,24 @@ namespace firy {
 			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const = 0;
 
 			virtual spBuffer blockRead(const tBlock pBlock);
+
 			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer);
 
 			/**
-			 * Number of sectors per track
+			 * Number of blocks
 			 */
 			virtual tBlock blockCount() const;
+
+			/**
+			 * Is a block free
+			 */
+			virtual bool blockIsFree(const tBlock pBlock) const = 0;
+
+			/**
+			 * Get free blocks
+			 */
+			virtual std::vector<tBlock> blocksFree() const = 0;
+
 
 			/**
 			 * Number of bytes per sector

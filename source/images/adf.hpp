@@ -143,6 +143,17 @@ namespace firy {
 				/*200*/
 			};
 
+			struct sBitmapBlock {
+				/*000*/	ULONG	checkSum;
+				/*004*/	ULONG	map[127];
+			};
+
+
+			struct sBitmapExtBlock {
+				/*000*/	int32_t	bmPages[127];
+				/*1fc*/	int32_t	nextBlock;
+			};
+
 			struct sEntry {
 				int mType;
 				size_t mSizeInSectors;
@@ -196,16 +207,24 @@ namespace firy {
 			virtual spBuffer filesystemRead(spNode pFile);
 
 			virtual size_t blockSize(const tBlock pBlock = 0) const;
+			virtual bool blockIsFree(const tBlock pBlock) const;
+			virtual std::vector<tBlock> blocksFree() const;
+
+			virtual std::shared_ptr<adf::sOFSDataBlock> blockReadOFS(const tBlock pBlock);
 
 			adf::eType diskType() const;
 
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
-			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
+			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
 			virtual bool filesystemChainLoad(spFile pFile);
+			virtual bool filesystemBitmapLoad();
 
 		private:
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock);
+			template <class tBlockType> std::shared_ptr<tBlockType> blockLoadNoCheck(const size_t pBlock);
+
+			template <class tBlockType> void blockSwapEndian(std::shared_ptr<tBlockType> pBlock);
 
 			bool blockBootLoad();
 			bool blockRootLoad();
@@ -219,6 +238,7 @@ namespace firy {
 			tBlock mBlockFirst;
 			tBlock mBlockLast;
 			tBlock mBlockRoot;
+			std::vector<std::shared_ptr<adf::sBitmapBlock>> mBitmapBlocks;
 		};
 
 

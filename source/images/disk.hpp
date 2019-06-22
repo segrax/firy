@@ -25,7 +25,7 @@ namespace firy {
 				auto Buffer = getBufferPtr(pOffset);
 				auto result = std::make_shared<tBuffer>();
 				result->resize(pSize);
-				memcpy(result.get(), Buffer, pSize);
+				memcpy(result.get()->data(), Buffer, pSize);
 				return result;
 			}
 		private:
