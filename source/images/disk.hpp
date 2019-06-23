@@ -23,10 +23,20 @@ namespace firy {
 
 			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const {
 				auto Buffer = getBufferPtr(pOffset);
+				if (!Buffer)
+					return 0;
+
 				auto result = std::make_shared<tBuffer>();
 				result->resize(pSize);
 				memcpy(result.get()->data(), Buffer, pSize);
 				return result;
+			}
+
+			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock) {
+				auto block = imageObjectGet<tBlockType>(pBlock * tAccessInterface::blockSize());
+				if (!block)
+					return 0;
+				return block;
 			}
 		private:
 

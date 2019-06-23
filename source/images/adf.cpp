@@ -115,10 +115,6 @@ namespace firy {
 
 		}
 
-		spBuffer sADFFile::read() {
-			return mFilesystem.lock()->filesystemRead(shared_from_this());
-		}
-
 		sADFDir::sADFDir(wpFilesystem pFilesystem) : sEntry(), sDirectory(pFilesystem) {
 
 		}
@@ -347,9 +343,9 @@ namespace firy {
 		}
 
 		bool cADF::blockIsFree(const tBlock pBlock) const {
-			int sectOfMap = pBlock - 2;
-			int block = sectOfMap / (127 * 32);
-			int indexInMap = (sectOfMap / 32) % 127;
+			tBlock sectOfMap = pBlock - 2;
+			tBlock block = sectOfMap / (127 * 32);
+			tBlock indexInMap = (sectOfMap / 32) % 127;
 			static uint32_t bitMask[32] = {
 				0x1, 0x2, 0x4, 0x8,
 				0x10, 0x20, 0x40, 0x80,
@@ -440,8 +436,8 @@ namespace firy {
 				return false;
 
 			// Original AmigaDOS 1.2 FS
-			if (!(mBootBlock->dosType[3] & eFlags::FFS))
-				mBlockSize = 488;
+			//if (!(mBootBlock->dosType[3] & eFlags::FFS))
+			//	mBlockSize = 488;
 
 			return true;
 		}
@@ -498,7 +494,7 @@ namespace firy {
 		}
 
 		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoadNoCheck(const size_t pBlock) {
-			auto block = imageObjectGet<tBlockType>(pBlock * blockSize());
+			auto block = cDisk::blockLoad<tBlockType>(pBlock);
 			if (!block)
 				return 0;
 
@@ -510,7 +506,7 @@ namespace firy {
 		 * Read a block
 		 */
 		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoad(const size_t pBlock) {
-			auto block = imageObjectGet<tBlockType>(pBlock * blockSize());
+			auto block = cDisk::blockLoad<tBlockType>(pBlock);
 			if (!block)
 				return 0;
 

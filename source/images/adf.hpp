@@ -183,7 +183,6 @@ namespace firy {
 			 */
 			struct sADFFile : public sEntry, public filesystem::sFile {
 				sADFFile(wpFilesystem pFilesystem);
-				spBuffer read();
 			};
 
 			struct sADFDir : public sEntry, public filesystem::sDirectory {

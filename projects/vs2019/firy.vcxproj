@@ -131,6 +131,7 @@
     <ClInclude Include="..\..\source\images\adf.hpp" />
     <ClInclude Include="..\..\source\images\d64.hpp" />
     <ClInclude Include="..\..\source\images\disk.hpp" />
+    <ClInclude Include="..\..\source\images\fat.hpp" />
     <ClInclude Include="..\..\source\images\image.hpp" />
     <ClInclude Include="..\..\source\interfaces\blocks.hpp" />
     <ClInclude Include="..\..\source\interfaces\tracks.hpp" />
@@ -142,6 +143,7 @@
     <ClCompile Include="..\..\source\images\adf.cpp" />
     <ClCompile Include="..\..\source\images\d64.cpp" />
     <ClCompile Include="..\..\source\images\disk.cpp" />
+    <ClCompile Include="..\..\source\images\fat.cpp" />
     <ClCompile Include="..\..\source\images\image.cpp" />
     <ClCompile Include="..\..\source\interfaces\blocks.cpp" />
     <ClCompile Include="..\..\source\interfaces\tracks.cpp" />

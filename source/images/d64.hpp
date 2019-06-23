@@ -18,7 +18,6 @@ namespace firy {
 			eD64FileType mType;
 
 			sD64File(wpFilesystem pFilesystem);
-			spBuffer read();
 		};
 
 		typedef std::shared_ptr<sD64File> spD64File;

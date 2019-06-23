@@ -45,10 +45,21 @@ namespace firy {
 				int8_t  mFilSysType[8];
 			};
 
+			struct sFileAttribute
+			{
+				uint8_t read_only : 1;
+				uint8_t hidden : 1;
+				uint8_t system : 1;
+				uint8_t label : 1;
+				uint8_t directory : 1;
+				uint8_t archive : 1;
+				uint8_t __res : 2;
+			};
+
 			struct sFileEntry {
 				uint8_t Name[8];
 				uint8_t Extension[3];
-				uint8_t Attribute;
+				sFileAttribute Attributes;
 				uint8_t Reserved[10];
 				uint16_t Time;
 				uint16_t Date;
@@ -58,17 +69,29 @@ namespace firy {
 		}
 #pragma pack()
 
+		struct sEntry {
+
+			tBlock mBlock;
+			tBlock mFirstCluster;
+		};
+
 		/**
 		 * PC: Representation of a file
 		 */
-		struct sFATFile : filesystem::sFile {
+		struct sFATFile : public sEntry, public filesystem::sFile {
 			size_t mSizeInSectors;
 
 			sFATFile(wpFilesystem pFilesystem);
-			spBuffer read();
+		};
+
+		struct sFATDir : public sEntry, public filesystem::sDirectory {
+			size_t mSizeInBytes;
+
+			sFATDir(wpFilesystem pFilesystem);
 		};
 
 		typedef std::shared_ptr<sFATFile> spFATFile;
+		typedef std::shared_ptr<sFATDir> spFATDir;
 
 		/**
 		 * MS-DOS: FAT
@@ -84,6 +107,7 @@ namespace firy {
 
 			virtual tBlock blockCount() const;
 			virtual size_t blockSize(const tBlock pBlock = 0) const;
+
 			virtual bool blockIsFree(const tBlock pBlock) const;
 			virtual std::vector<tBlock> blocksFree() const;
 
@@ -94,10 +118,19 @@ namespace firy {
 
 		private:
 
+			tBlock fatSectorNext(tBlock pCurrent) const;
+			tBlock directorySectors(tBlock pStart) const;
+			tBlock clusterToBlock(tBlock pCluster) const;
+
+			spNode entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock);
+			bool entrysLoad(spFATDir pDir);
+
 			std::shared_ptr<fat::sBootBlock12> mBootBlock;
 
 			tBlock mBlockFAT;
 			tBlock mBlockRoot;
+
+			std::vector<uint16_t> mClusterMap;
 		};
 
 

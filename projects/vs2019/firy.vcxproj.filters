@@ -60,6 +60,9 @@
     <ClInclude Include="..\..\source\images\adf.hpp">
       <Filter>Source Files\images</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\images\fat.hpp">
+      <Filter>Source Files\images</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">
@@ -87,6 +90,9 @@
       <Filter>Source Files\interfaces</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\images\adf.cpp">
+      <Filter>Source Files\images</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\images\fat.cpp">
       <Filter>Source Files\images</Filter>
     </ClCompile>
   </ItemGroup>

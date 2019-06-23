@@ -20,7 +20,7 @@ namespace firy {
 			return pBlock * blockSize(pBlock);
 		}
 
-		spBuffer cBlocks::blockRead(const tBlock pBlock) {
+		spBuffer cBlocks::blockRead(const tBlock pBlock) const {
 			return imageBufferCopy(blockOffset(pBlock), blockSize());
 		}
 

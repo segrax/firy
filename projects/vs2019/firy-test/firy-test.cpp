@@ -4,10 +4,12 @@
 #include "firy.hpp"
 #include "images/d64.hpp"
 #include "images/adf.hpp"
+#include "images/fat.hpp"
+
 #include <sstream>
 #include <iomanip>
 
-bool dumpfreeblocks(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std::string& pBaseFileName) {
+bool DumpBlocksFree(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std::string& pBaseFileName) {
 
 	for (auto& block : pDisk->blocksFree()) {
 		auto data = pDisk->blockRead(block);
@@ -37,6 +39,14 @@ bool dumpfreeblocks(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std:
 	return true;
 }
 
+template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
+
+	std::shared_ptr<tImage> img = std::make_shared<tImage>();
+	img->imageOpen(pImage);
+	img->filesystemPrepare();
+	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
+}
+
 int main()
 {
 	/*
@@ -52,7 +62,7 @@ int main()
 	auto track = D64->trackRead(18);
 
 	firy::gResources->FileSave("d:\\test", track);*/
-	{
+	/*{
 		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
 		ADF->imageOpen("Mo_Utes.adf");
 		ADF->filesystemPrepare();
@@ -67,7 +77,7 @@ int main()
 		auto data = file->read();
 		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
 		std::cout << std::string((char*)data->data(), data->size());
-	}
+	}*/
 	/*
 	{
 	std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
@@ -83,7 +93,7 @@ int main()
 	auto data = file->read();
 	std::cout << std::string((char*)data->data(), data->size());
 	}*/
-	
+	/*
 	auto files = firy::gResources->directoryList(firy::gResources->getcwd(), "adf");
 
 	for (auto& file : files) {
@@ -98,7 +108,7 @@ int main()
 		name = name.substr(0, name.size() - 4); // remove extension
 
 		dumpfreeblocks(ADF, "d://blocks//" + name);
-	}
+	}*/
 
 	/*{
 		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
@@ -120,4 +130,22 @@ int main()
 		//auto data = file->read();
 		//std::cout << std::string((char*)data->data(), data->size());
 	}*/
+	/*
+	{
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
+		FAT->imageOpen("EA_Engine_Assy.img");
+		FAT->filesystemPrepare();
+		auto path = FAT->filesystemPath("/TEST");
+
+		if (path) {
+			for (auto& entry : path->mNodes) {
+				std::cout << entry->mName << "\n";
+			}
+		}
+		dumpfreeblocks(FAT, "d://blocks//" + name);
+		auto file = FAT->filesystemFile("/TEST/AA.TXT");
+		auto data = file->read();
+	}*/
+
+	DumpImageBlocksFree<firy::images::cFAT>("EA_Engine_Assy.img", "d:\\blocks", "EA");
 }

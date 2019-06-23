@@ -12,7 +12,7 @@ namespace firy {
 			cBlocks();
 			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const = 0;
 
-			virtual spBuffer blockRead(const tBlock pBlock);
+			virtual spBuffer blockRead(const tBlock pBlock) const;
 
 			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer);
 

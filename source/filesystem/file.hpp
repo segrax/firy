@@ -6,7 +6,7 @@ namespace firy {
 
 			sFile(wpFilesystem pFilesystem);
 
-			virtual spBuffer read() = 0;
+			virtual spBuffer read();
 
 
 			bool mChainBroken;

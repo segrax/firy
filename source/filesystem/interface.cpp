@@ -32,6 +32,10 @@ namespace firy {
 			mSizeInBytes = 0;
 		}
 
+		spBuffer sFile::read() {
+			return mFilesystem.lock()->filesystemRead(shared_from_this());
+		}
+
 		sDirectory::sDirectory(wpFilesystem pFilesystem) : sNode(pFilesystem) {
 
 		}

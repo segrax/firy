@@ -10,31 +10,11 @@ namespace firy {
 		const size_t gBytesPerSector = 254;
 
 		/**
-		 * 
-		 */
-		std::string stringRip(const uint8_t* pBuffer, uint8_t pTerminator, size_t pLengthMax) {
-			std::string tmpString;
-
-			for (size_t i = 0; *pBuffer != pTerminator && i <= pLengthMax; ++i)
-				tmpString += (char)* pBuffer++;
-
-			return tmpString;
-		}
-
-		/**
 		 * D64File Constructor
 		 */
 		sD64File::sD64File(wpFilesystem pFilesystem) : sFile(pFilesystem) {
 			mType = eD64FileType_DEL;
 			mSizeInSectors = 0;
-		}
-
-		/**
-		 * D64File Read
-		 */
-		spBuffer sD64File::read() {
-
-			return mFilesystem.lock()->filesystemRead(shared_from_this());
 		}
 
 		/**

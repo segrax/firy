@@ -68,6 +68,27 @@ namespace firy {
 		return pStr;
 	}
 
+	inline std::string stringRip(const uint8_t* pBuffer, uint8_t pTerminator, size_t pLengthMax) {
+		std::string tmpString;
+
+		for (size_t i = 0; *pBuffer != pTerminator && i <= pLengthMax; ++i)
+			tmpString += (char)* pBuffer++;
+
+		return tmpString;
+	}
+
+	static inline std::string ltrim(std::string s, uint8_t pChar) {
+		s.erase(s.begin(), std::find_if(s.begin(), s.end(), [pChar](int ch) {
+			return ch != pChar;
+			}));
+		return s;
+	}
+	static inline std::string rtrim(std::string s, uint8_t pChar) {
+		s.erase(std::find_if(s.rbegin(), s.rend(), [pChar](int ch) {
+			return ch != pChar;
+			}).base(), s.end());
+		return s;
+	}
 
 	class cFiry {
 	public:
