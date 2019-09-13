@@ -27,7 +27,7 @@ namespace firy {
 
 			// The root directory (start=0) has a fixed size.
 			if (!pStart)
-				return (mBootBlock->mRootEntCnt * sizeof(fat::sFileEntry)) / blockSize();
+				return (mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry)) / blockSize();
 
 			cl = pStart;
 			while (pStart) {
@@ -41,9 +41,9 @@ namespace firy {
 		}
 
 		tBlock cFAT::clusterToBlock(tBlock pCluster) const {
-			auto dir_start = mBootBlock->mNumFATs * mBootBlock->mFATSz16 + 1;
-			auto data_start = dir_start + (mBootBlock->mRootEntCnt * sizeof(sFileEntry) / mBootBlock->mBytsPerSec);
-			return data_start + ((pCluster - 2) * mBootBlock->mSecPerClus);
+			auto dir_start = mBootBlock->mBiosParams.numfats * mBootBlock->mBiosParams.secperfat + 1;
+			auto data_start = dir_start + (mBootBlock->mBiosParams.rootentries * sizeof(sFileEntry) / mBootBlock->mBiosParams.bytepersec);
+			return data_start + ((pCluster - 2) * mBootBlock->mBiosParams.secperclus);
 		}
 
 		/**
@@ -53,6 +53,9 @@ namespace firy {
 
 		cFAT::cFAT() : cDisk<interfaces::cBlocks>() {
 			mBlockSize = gBytesPerBlock;
+			mBlockFAT = 0;
+			mBlockRoot = 0;
+			mType = eType::FAT12;
 		}
 
 		std::string cFAT::filesystemNameGet() const {
@@ -60,23 +63,42 @@ namespace firy {
 		}
 
 		bool cFAT::filesystemPrepare() {
-			mBootBlock = blockLoad<sBootBlock12>(0);
+			mBootBlock = blockLoad<sBootRecordBlock>(0);
 			if (!mBootBlock)
 				return false;
 
-			mBlockFAT = mBootBlock->mRsvdSecCnt;
+			mBlockFAT = mBootBlock->mBiosParams.reserved;
 
-			// FAT12/16 this is a sector number
-			mBlockRoot = ((tBlock) mBootBlock->mRsvdSecCnt) + uint32_t(mBootBlock->mNumFATs * mBootBlock->mFATSz16);
+			// rootentries is set for fat12/16
+			if (mBootBlock->mBiosParams.rootentries) {
+				mBlockRoot = ((tBlock)mBlockFAT) + (mBootBlock->mBiosParams.secperfat * 2);
+				mBlockData = mBlockRoot + (((mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry)) + (512 - 1)) / 512);
+			}
+			else {
+				mBlockData = mBlockFAT + (mBootBlock->mBiosParams.secperfat * 2);
+				mBlockRoot = mBootBlock->mBiosParam32.root;
+			}
+
+			auto numclusters = (mBootBlock->mBiosParams.sectors_s - mBlockData) / mBootBlock->mBiosParams.secperclus;
+			if (numclusters < 4085)
+				mType = FAT12;
+			else if (numclusters < 65525)
+				mType = FAT16;
+			else
+				mType = FAT32;
+
 
 			auto Root = std::make_shared<sFATDir>(weak_from_this());
 			Root->mBlock = mBlockRoot;
-			Root->mSizeInBytes = mBootBlock->mRootEntCnt * sizeof(fat::sFileEntry);
+			Root->mSizeInBytes = mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry);
 
 			mFsRoot = Root;
 			mClusterMap.clear();
 
 			auto blockFat = getBufferPtr(mBlockFAT * blockSize());
+			if (!blockFat)
+				return false;
+
 			for (size_t i = 0, j = 0; i < 4608; i += 3) {
 				mClusterMap.push_back((blockFat[i] + (blockFat[i + 1] << 8)) & 0x0FFF);
 				mClusterMap.push_back((blockFat[i + 1] + (blockFat[i + 2] << 8)) >> 4);
@@ -161,7 +183,7 @@ namespace firy {
 				auto sector = clusterToBlock(cluster);
 
 				auto block = getBufferPtr(sector * blockSize());
-				auto size = min(totalbytes, mBootBlock->mSecPerClus * blockSize());
+				auto size = min(totalbytes, mBootBlock->mBiosParams.secperclus * blockSize());
 				memcpy(destptr, block, size);
 				totalbytes -= size;
 				destptr += size;
@@ -177,14 +199,14 @@ namespace firy {
 		}
 
 		tBlock cFAT::blockCount() const {
-			return mBootBlock->mTotSec16;
+			return mBootBlock->mBiosParams.sectors_l;
 		}
 
 		size_t cFAT::blockSize(const tBlock pBlock) const {
 			if (!mBootBlock)
 				return cBlocks::blockSize(pBlock);
 
-			return mBootBlock->mBytsPerSec;
+			return mBootBlock->mBiosParams.bytepersec;
 		}
 
 		bool cFAT::blockIsFree(const tBlock pBlock) const {
@@ -198,7 +220,7 @@ namespace firy {
 			for (auto& cluster : mClusterMap) {
 				if (!cluster) {
 					auto block = clusterToBlock(clusternumber);
-					for(auto current = block; current < block + mBootBlock->mSecPerClus; ++current)
+					for(auto current = block; current < block + mBootBlock->mBiosParams.secperclus; ++current)
 						free.push_back( current );
 				}
 				++clusternumber;

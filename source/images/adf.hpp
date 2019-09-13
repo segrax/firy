@@ -2,6 +2,8 @@ namespace firy {
 	namespace images {
 		namespace adf {
 
+			void adfDays2Date(int32_t days, int* yy, int* mm, int* dd);
+
 			const size_t HT_SIZE = 72;
 			const size_t BM_SIZE = 25;
 			const size_t MAX_DATABLK = 72;
@@ -230,7 +232,7 @@ namespace firy {
 
 			spNode entryLoad(const tBlock pOffset);
 			bool entrysLoad(adf::spADFDir pNode);
-
+		public:
 			std::shared_ptr<adf::sBootBlock> mBootBlock;
 			std::shared_ptr<adf::sRootBlock> mRootBlock;
 
