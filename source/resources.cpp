@@ -38,17 +38,26 @@ namespace firy {
 		return files;
 	}
 
-	spBuffer cResources::FileRead(const std::string& pFile) {
+	spBuffer cResources::FileRead(const std::string& pFile, const size_t pOffset, const size_t pSize) {
 		auto fileBuffer = std::make_shared<tBuffer>();
 
 		// Attempt to open the file
 		auto fileStream = new std::ifstream(pFile.c_str(), std::ios::binary);
 		if (fileStream->is_open() != false) {
-
-			// Get file size
 			fileStream->seekg(0, std::ios::end);
-			fileBuffer->resize(static_cast<const unsigned int>(fileStream->tellg()));
+			size_t maxSize = fileStream->tellg();
 			fileStream->seekg(std::ios::beg);
+
+			// Entire file?
+			if (!pSize) {
+				fileBuffer->resize(maxSize - pOffset);
+			} else {
+				fileBuffer->resize( (pSize < maxSize) ? pSize : maxSize);
+			}
+
+			// Read from?
+			if (pOffset)
+				fileStream->seekg(pOffset, std::ios::beg);
 
 			// Allocate buffer, and read the file into it
 			fileStream->read((char*)fileBuffer->data(), fileBuffer->size());
@@ -65,25 +74,33 @@ namespace firy {
 	}
 
 	bool cResources::FileSave(const std::string& pFile, const std::string& pData) {
-
 		std::ofstream outfile(pFile, std::ofstream::binary);
 		if (!outfile.is_open())
 			return false;
-
 		outfile << pData;
 		outfile.close();
 		return true;
 	}
 
 	bool cResources::FileSave(const std::string& pFile, const spBuffer pData) {
-
 		std::ofstream outfile(pFile, std::ofstream::binary);
 		if (!outfile.is_open())
 			return false;
-
 		outfile.write((const char*) pData->data(), pData->size());
 		outfile.close();
 		return true;
+	}
+
+	size_t cResources::FileSize(const std::string& pFile) const {
+		std::streampos size = 0;
+		auto fileStream = new std::ifstream(pFile.c_str(), std::ios::binary);
+		if (fileStream->is_open()) {
+			fileStream->seekg(0, std::ios::end);
+			size = fileStream->tellg();
+			fileStream->seekg(std::ios::beg);
+			fileStream->close();
+		}
+		return size;
 	}
 
 	bool cResources::FileExists(const std::string& pPath) const {

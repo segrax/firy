@@ -35,10 +35,7 @@ namespace firy {
 				uint8_t unit;				// int 13h drive#
 				uint8_t head;				// archaic, used by Windows NT-class OSes for flags
 				uint8_t signature;			// 0x28 or 0x29
-				uint8_t serial_0;			// serial#
-				uint8_t serial_1;			// serial#
-				uint8_t serial_2;			// serial#
-				uint8_t serial_3;			// serial#
+				uint32_t serial;			// serial#
 				uint8_t label[11];			// volume label
 				uint8_t system[8];			// filesystem ID
 			};
@@ -58,10 +55,7 @@ namespace firy {
 				uint8_t unit;				// int 13h drive#
 				uint8_t head;				// archaic, used by Windows NT-class OSes for flags
 				uint8_t signature;			// 0x28 or 0x29
-				uint8_t serial_0;			// serial#
-				uint8_t serial_1;			// serial#
-				uint8_t serial_2;			// serial#
-				uint8_t serial_3;			// serial#
+				uint32_t serial;			// serial#
 				uint8_t label[11];			// volume label
 				uint8_t system[8];			// filesystem ID
 			};
@@ -80,8 +74,7 @@ namespace firy {
 				uint8_t sig_aa;	
 			};
 
-			struct sFileAttribute
-			{
+			struct sFileAttribute {
 				uint8_t read_only : 1;
 				uint8_t hidden : 1;
 				uint8_t system : 1;
@@ -105,7 +98,6 @@ namespace firy {
 #pragma pack()
 
 		struct sEntry {
-
 			tBlock mBlock;
 			tBlock mFirstCluster;
 		};
@@ -153,11 +145,13 @@ namespace firy {
 
 		private:
 
+			tBlock getFirstDataSector() const;
 			tBlock fatSectorNext(tBlock pCurrent) const;
 			tBlock directorySectors(tBlock pStart) const;
 			tBlock clusterToBlock(tBlock pCluster) const;
 
 			spNode entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock);
+
 			bool entrysLoad(spFATDir pDir);
 
 			std::shared_ptr<fat::sBootRecordBlock> mBootBlock;
@@ -170,7 +164,5 @@ namespace firy {
 
 			std::vector<uint16_t> mClusterMap;
 		};
-
-
 	}
 }

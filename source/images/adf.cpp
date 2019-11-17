@@ -374,14 +374,14 @@ namespace firy {
 		}
 
 		adf::eType cADF::diskType() const {
-			if ((mBuffer->size() >= 512 * 11 * 2 * 80) &&
-				(mBuffer->size() <= 512 * 11 * 2 * 83))
+			if ((mImageSize >= 512 * 11 * 2 * 80) &&
+				(mImageSize <= 512 * 11 * 2 * 83))
 				return(eType::FLOPPY_DD);
 
-			else if (mBuffer->size() == 512 * 22 * 2 * 80)
+			else if (mImageSize == 512 * 22 * 2 * 80)
 				return(eType::FLOPPY_HD);
 
-			else if (mBuffer->size() > 512 * 22 * 2 * 80)
+			else if (mImageSize > 512 * 22 * 2 * 80)
 				return(eType::HARDDRIVE);
 			
 			return eType::UNKNOWN;
@@ -454,7 +454,7 @@ namespace firy {
 				mBlockLast = (80 * 2 * 11) - 1;
 				break;
 			case adf::eType::HARDDRIVE:
-				mBlockLast = (mBuffer->size() / 512) - 1;
+				mBlockLast = (mImageSize / 512) - 1;
 				break;
 			default:
 				return false;

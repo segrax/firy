@@ -63,7 +63,7 @@ int main()
 	auto track = D64->trackRead(18);
 
 	firy::gResources->FileSave("d:\\test", track);*/
-
+	/*
 	DumpImageBlocksFree<firy::images::cADF>("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
 
 
@@ -88,7 +88,8 @@ int main()
 		auto data = file->read();
 		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
 		std::cout << std::string((char*)data->data(), data->size());
-	}
+	}*/
+
 	/*
 	{
 	std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();

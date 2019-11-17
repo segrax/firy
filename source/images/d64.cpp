@@ -25,7 +25,7 @@ namespace firy {
 			mTrackCount = 35;
 		}
 
-		std::string cD64::filesystemNameGet() const {
+		std::string cD64::filesystemNameGet() {
 			uint8_t* sectorptr = getBufferPtr(sectorOffset(tTrackSector{ 18,1 }));
 
 			return stringRip(sectorptr + 0x90, 0xA0, 16);

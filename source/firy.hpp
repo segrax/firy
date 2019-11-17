@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <map>
 #include <algorithm>
 
 #ifdef _MSC_VER
