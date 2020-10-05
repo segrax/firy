@@ -17,7 +17,7 @@ namespace firy {
 				auto buffer = imageBufferCopy(pOffset, sizeof(tBlockType));
 				std::shared_ptr<tBlockType> result = std::make_shared<tBlockType>();
 
-				if (buffer->size() < sizeof(tBlockType))
+				if (!buffer || buffer->size() < sizeof(tBlockType))
 					return 0;
 
 				memcpy(result.get(), buffer->data(), buffer->size());
@@ -32,7 +32,7 @@ namespace firy {
 			virtual uint8_t* getBufferPtr(const size_t pOffset = 0) {
 				spBuffer buffer = imageChunkBuffer(pOffset);
 
-				return (buffer->data() + pOffset);
+				return (buffer->data() + (pOffset - mImageChunkSize));
 			}
 
 		protected:

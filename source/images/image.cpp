@@ -20,6 +20,9 @@ namespace firy {
 			mBuffers.clear();
 		}
 
+		/**
+		 * Get an image chunk, from memory or from disk
+		 */
 		spBuffer cImage::imageChunkBuffer(const size_t pOffset) {
 			size_t index = pOffset / mImageChunkSize;
 			size_t offset = pOffset % mImageChunkSize;
@@ -37,6 +40,9 @@ namespace firy {
 			return buffer;
 		}
 
+		/**
+		 * Read a chunk of the buffer
+		 */
 		std::shared_ptr<tBuffer> cImage::imageBufferCopy(const size_t pOffset, const size_t pSize) {
 			size_t remainSize = pSize;
 			size_t mainoffset = pOffset;
@@ -51,13 +57,17 @@ namespace firy {
 					return 0;
 
 				size_t offset = mainoffset % mImageChunkSize;
-				size_t maxSize = pSize < (Buffer->size() - offset) ? pSize : (Buffer->size()- offset);
+				size_t size = Buffer->size() - offset;
+
+				size_t maxSize = (pSize < size) ? pSize : size;
+				if (remainSize < maxSize)
+					maxSize = remainSize;
 
 				memcpy(ptr, Buffer->data() + offset, maxSize);
 				remainSize -= maxSize;
 				ptr += maxSize;
 
-				mainoffset += Buffer->size();
+				mainoffset += size;
 			}
 
 			return result;

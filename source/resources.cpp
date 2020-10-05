@@ -46,11 +46,12 @@ namespace firy {
 		if (fileStream->is_open() != false) {
 			fileStream->seekg(0, std::ios::end);
 			size_t maxSize = fileStream->tellg();
+			maxSize -= pOffset;
 			fileStream->seekg(std::ios::beg);
 
 			// Entire file?
 			if (!pSize) {
-				fileBuffer->resize(maxSize - pOffset);
+				fileBuffer->resize(maxSize);
 			} else {
 				fileBuffer->resize( (pSize < maxSize) ? pSize : maxSize);
 			}

@@ -9,6 +9,23 @@ namespace firy {
 			};
 
 #pragma pack(1)
+			struct sParitionTableEntry {
+				uint8_t  boot;				// 0x80: Active/boot partition
+				uint8_t  beginHead;
+				unsigned char beginSector : 6;
+				unsigned char beginCylinderHigh : 2;
+				uint8_t  beginCylinderLow;
+
+				uint8_t  type;
+
+				uint8_t  endHead;
+				unsigned char endSector : 6;
+				unsigned char endCylinderHigh : 2;
+				uint8_t  endCylinderLow;
+
+				uint32_t firstSector;		// LBA of first block of partition
+				uint32_t totalSectors;		// Total blocks
+			};
 
 			/*
 				BIOS Parameter Block structure (FAT12/16)
@@ -69,7 +86,16 @@ namespace firy {
 					sBiosExParam mBiosParam;
 					sBiosExParam32 mBiosParam32;
 				};
-				uint8_t code[420];
+
+				union {
+					uint8_t code1[420];
+
+					struct {
+						uint8_t code2[356];
+						sParitionTableEntry parts[4];	// 0x88
+					} mbr;
+				};
+
 				uint8_t sig_55;		
 				uint8_t sig_aa;	
 			};
@@ -87,8 +113,17 @@ namespace firy {
 			struct sFileEntry {
 				uint8_t Name[8];
 				uint8_t Extension[3];
-				sFileAttribute Attributes;
-				uint8_t Reserved[10];
+				union {
+					sFileAttribute Attributes;
+					uint8_t Attribute;
+				};
+
+				uint8_t Reserved;
+				uint8_t CrtTimeTenth;
+				uint16_t CrtTime;
+				uint16_t CrtDate;
+				uint16_t LstAccDate;
+				uint16_t StartClusterHi;	// FAT32
 				uint16_t Time;
 				uint16_t Date;
 				uint16_t StartCluster;
@@ -132,11 +167,15 @@ namespace firy {
 			virtual bool filesystemPrepare();
 			virtual spBuffer filesystemRead(spNode pFile);
 
+			virtual bool partitionOpen(int pNumber);
+
 			virtual tBlock blockCount() const;
 			virtual size_t blockSize(const tBlock pBlock = 0) const;
+			virtual tBlock blockToCluster(const tBlock pBlock) const;
 
 			virtual bool blockIsFree(const tBlock pBlock) const;
 			virtual std::vector<tBlock> blocksFree() const;
+			std::shared_ptr<tBuffer> clusterChainRead(size_t pCluster);
 
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
@@ -158,11 +197,13 @@ namespace firy {
 
 			fat::eType mType;
 			
+			tBlock mBlockPartitionStart;
+
 			tBlock mBlockFAT;
 			tBlock mBlockRoot;
 			tBlock mBlockData;
 
-			std::vector<uint16_t> mClusterMap;
+			std::vector<uint32_t> mClusterMap;
 		};
 	}
 }
