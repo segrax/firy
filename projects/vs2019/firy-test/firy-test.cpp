@@ -142,10 +142,11 @@ int main()
 		//auto data = file->read();
 		//std::cout << std::string((char*)data->data(), data->size());
 	}*/
-	/*
+	
+	
 	{
 		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
-		FAT->imageOpen("Prince.of.Persia.2.1of4.img");
+		FAT->imageOpen("Microsoft.MS-DOS.6.2.Upgrade.1of3.img");
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -154,13 +155,28 @@ int main()
 				std::cout << entry->mName << "\n";
 			}
 		}
-		DumpImageBlocksFree<firy::images::cFAT>("Prince.of.Persia.2.1of4.img", "d:\\blocks", "prince2");
+		auto file = FAT->filesystemFile("/SCANDISK.EXE");
+		auto data = file->read();
+	}
+	{
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
+		FAT->imageOpen("EA_Engine_Assy.img");
+		FAT->filesystemPrepare();
+		auto path = FAT->filesystemPath("/");
+
+		if (path) {
+			for (auto& entry : path->mNodes) {
+				std::cout << entry->mName << "\n";
+			}
+		}
+		//DumpImageBlocksFree<firy::images::cFAT>("Prince.of.Persia.2.1of4.img", "d:\\blocks", "prince2");
 //		auto file = FAT->filesystemFile("/SIRxPRINCE");
 	//	auto data = file->read();
-	}*/
+	}
 
 	//DumpImageBlocksFree<firy::images::cFAT>("EA_Engine_Assy.img", "d:\\blocks", "EA");
 	//DumpImageBlocksFree<firy::images::cFAT>("Prince.Of.Persia.img", "d:\\blocks", "PRINCE");
+//DumpImageBlocksFree<firy::images::cADF>("d:\\blocks\\Robs_Workbench_2.adf", "d:\\blocks", "PRINCE");
 
 	/*auto files = firy::gResources->directoryList(firy::gResources->getcwd(), "img");
 
@@ -174,7 +190,8 @@ int main()
 
 	{
 		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
-		FAT->imageOpen("Win95.img");
+		FAT->imageOpen("Win98.img");
+		//FAT->imageOpen("testmbr.img");
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -183,8 +200,8 @@ int main()
 				std::cout << entry->mName << "\n";
 			}
 		}
-		//		auto file = FAT->filesystemFile("/SIRxPRINCE");
-			//	auto data = file->read();
+				auto file = FAT->filesystemFile("/scandisk.log");
+				auto data = file->read();
 	}
 
 

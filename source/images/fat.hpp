@@ -175,7 +175,7 @@ namespace firy {
 
 			virtual bool blockIsFree(const tBlock pBlock) const;
 			virtual std::vector<tBlock> blocksFree() const;
-			std::shared_ptr<tBuffer> clusterChainRead(size_t pCluster);
+			std::shared_ptr<tBuffer> clusterChainRead(size_t pCluster, bool pIsRoot);
 
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
@@ -187,7 +187,8 @@ namespace firy {
 			tBlock getFirstDataSector() const;
 			tBlock fatSectorNext(tBlock pCurrent) const;
 			tBlock directorySectors(tBlock pStart) const;
-			tBlock clusterToBlock(tBlock pCluster) const;
+			tBlock clusterToBlock(tBlock pCluster, bool pIsRoot) const;
+			bool clusterMapLoad();
 
 			spNode entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock);
 
