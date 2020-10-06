@@ -14,13 +14,13 @@ namespace firy {
 
 		}
 
-		tBlock cFAT::fatSectorNext(tBlock pCurrent) const {
-			if (pCurrent > mClusterMap.size()) {
+		tBlock cFAT::fatSectorNext(tBlock pCluster) const {
+			if (pCluster > mClusterMap.size()) {
 				//std::cout << "Invalid Cluster\n";
 				return 0;
 			}
 
-			auto next = mClusterMap[pCurrent];
+			auto next = mClusterMap[pCluster];
 			if ((next == 0) || 
 				(mType == FAT12 && next >= 0x0FF0 && next <= 0x0FFF) || 
 				(mType == FAT16 && next >= 0xFFF0 && next <= 0xFFFF) ||
@@ -34,7 +34,7 @@ namespace firy {
 			tBlock totalClusters = 1, cl;
 
 			// The root directory (start=0) has a fixed size.
-			if (!pStart && mBootBlock->mBiosParams.rootentries)
+			if (mType != FAT32 && pStart == mClusterRoot && mBootBlock->mBiosParams.rootentries)
 				return (mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry)) / blockSize();
 
 			cl = pStart;
@@ -52,19 +52,13 @@ namespace firy {
 			return (mBootBlock->mBiosParam32.fatsize * mBootBlock->mBiosParams.numfats) + mBootBlock->mBiosParams.reserved;
 		}
 
-		tBlock cFAT::clusterToBlock(tBlock pCluster, bool pIsRoot) const {
+		tBlock cFAT::clusterToBlock(tBlock pCluster) const {
 			if (mType == FAT32) {
 				auto data_start = getFirstDataSector() + mBootBlock->mBiosParams.hidden;
 				return data_start + ((pCluster - 2) * mBootBlock->mBiosParams.secperclus);
 			}
 
-			if (pIsRoot) {
-				return ((pCluster)* mBootBlock->mBiosParams.secperclus);
-			}
-
-			auto dir_start = mBlockPartitionStart + mBootBlock->mBiosParams.numfats * mBootBlock->mBiosParams.secperfat + (mType == FAT32 ? 1 : 0);
-			auto data_start = dir_start + (mBootBlock->mBiosParams.rootentries * sizeof(sFileEntry) / mBootBlock->mBiosParams.bytepersec);
-			return data_start + ((pCluster - 1) * mBootBlock->mBiosParams.secperclus);
+			return mBlockData + ((pCluster - 2) * mBootBlock->mBiosParams.secperclus);
 		}
 
 		/**
@@ -124,9 +118,7 @@ namespace firy {
 				return false;
 
 			mBlockPartitionStart = pNumber;
-			mBlockFAT = mBootBlock->mBiosParams.reserved + mBlockPartitionStart;
-
-			tBlock clusterCount;
+			mBlockFAT = mBlockPartitionStart + mBootBlock->mBiosParams.reserved;
 
 			//FAT12 / FAT16
 			if (mBootBlock->mBiosParams.secperfat) {
@@ -137,33 +129,31 @@ namespace firy {
 						mBlockRoot = (mBlockFAT + (mBootBlock->mBiosParams.secperfat * 2));
 						mBlockData = mBlockRoot + (((mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry)) + (512 - 1)) / 512);
 
-						mBlockRoot = mBlockRoot / mBootBlock->mBiosParams.secperclus;
-						tBlock totalUsed = mBootBlock->mBiosParams.reserved + mBootBlock->mBiosParams.numfats * mBootBlock->mBiosParams.secperfat + mBootBlock->mBiosParams.rootentries * sizeof(sFileEntry) / mBootBlock->mBiosParams.bytepersec;
-						clusterCount = (blockCount() - totalUsed) / mBootBlock->mBiosParams.secperclus;
-						if (clusterCount < 4085)
-							mType = FAT12;
-						else
-							mType = FAT16;
+						mClusterRoot = mBlockRoot / mBootBlock->mBiosParams.secperclus;
 					}
-
 				}
-			}
-			else {
+			} else {
 				if (mBootBlock->mBiosParam32.fatsize) {
-					mType = FAT32;
-
 					mBlockData = mBlockPartitionStart + (mBootBlock->mBiosParams.reserved + (mBootBlock->mBiosParams.numfats * mBootBlock->mBiosParam32.fatsize));
-					mBlockRoot = blockToCluster(mBlockData + ((mBlockRoot) * mBootBlock->mBiosParams.secperclus));
-
-					tBlock totalUsed = mBootBlock->mBiosParams.reserved + mBootBlock->mBiosParams.numfats * mBootBlock->mBiosParams.secperfat + mBootBlock->mBiosParams.rootentries * sizeof(sFileEntry) / mBootBlock->mBiosParams.bytepersec;
-					clusterCount = (blockCount() - totalUsed) / mBootBlock->mBiosParams.secperclus;
+					
+					mBlockRoot = mBlockData + ((mBlockRoot)* mBootBlock->mBiosParams.secperclus);
+				
+					mClusterRoot = blockToCluster(mBlockRoot);
 				}
 			}
+
+			mClustersTotal = (blockCount() - mBlockData) / mBootBlock->mBiosParams.secperclus;
+			if (mClustersTotal < 4085)
+				mType = FAT12;
+			else if (mClustersTotal < 65525)
+				mType = FAT16;
+			else
+				mType = FAT32;
 
 			clusterMapLoad();
 
 			auto Root = std::make_shared<sFATDir>(weak_from_this());
-			Root->mFirstCluster = mBlockRoot;
+			Root->mFirstCluster = mClusterRoot;
 			Root->mBlock = mBlockRoot;
 			Root->mSizeInBytes = mBootBlock->mBiosParams.rootentries * sizeof(fat::sFileEntry);
 
@@ -192,7 +182,6 @@ namespace firy {
 			}
 			else if (mType == FAT16) {
 				size_t size = (mBootBlock->mBiosParams.secperfat * mBootBlock->mBiosParams.numfats) * blockSize();
-
 				auto blockFat = imageBufferCopy(mBlockFAT * blockSize(), size);
 				if (!blockFat)
 					return false;
@@ -202,7 +191,6 @@ namespace firy {
 				}
 			} else {
 				size_t size = (mBlockData - mBlockFAT) * blockSize();
-
 				auto blockFat = imageBufferCopy(mBlockFAT * blockSize(), size);
 				if (!blockFat)
 					return false;
@@ -220,15 +208,42 @@ namespace firy {
 
 			return true;
 		}
+		spBuffer cFAT::clusterChainReadRoot(size_t pStartBlock) {
+			size_t totalbytes = directorySectors(mClusterRoot) * blockSize();
+			auto buffer = std::make_shared<tBuffer>();
+			buffer->resize(totalbytes);
+			auto dataptr = (uint8_t*)buffer->data();
+			auto sector = pStartBlock;
 
-		std::shared_ptr<tBuffer> cFAT::clusterChainRead(size_t pCluster, bool pIsRoot) {
+			while (totalbytes) {
+				auto size = min(totalbytes, mBootBlock->mBiosParams.secperclus * blockSize());
+				auto block = imageBufferCopy(sector * blockSize(), mBootBlock->mBiosParams.secperclus * blockSize());
+
+				memcpy(dataptr, block->data(), size);
+				dataptr += size;
+				totalbytes -= size;
+
+				pStartBlock = fatSectorNext(pStartBlock);
+				if (!pStartBlock && totalbytes) {
+					// TODO: Error
+					return {};
+				}
+				sector = pStartBlock;
+			}
+			return buffer;
+		}
+
+		/**
+		 * Read and follow a chain of clusters
+		 */
+		spBuffer cFAT::clusterChainRead(size_t pCluster) {
 			size_t totalbytes = directorySectors(pCluster) * blockSize();
 			auto buffer = std::make_shared<tBuffer>();
 			buffer->resize(totalbytes);
 			auto dataptr = (uint8_t*) buffer->data();
 
 			while (totalbytes) {
-				auto sector = clusterToBlock(pCluster, pIsRoot);
+				auto sector = clusterToBlock(pCluster);
 
 				auto size = min(totalbytes, mBootBlock->mBiosParams.secperclus * blockSize());
 				auto block = imageBufferCopy(sector * blockSize(), mBootBlock->mBiosParams.secperclus * blockSize());
@@ -246,10 +261,18 @@ namespace firy {
 			return buffer;
 		}
 
+		/**
+		 * Load in a cluster of a directory listing
+		 */
 		bool cFAT::entrysLoad(spFATDir pDir) {
 			size_t cluster = pDir->mFirstCluster;
 
-			auto block = clusterChainRead(pDir->mFirstCluster, pDir == mFsRoot);
+			spBuffer block;
+			
+			if(pDir == mFsRoot)
+				block = clusterChainReadRoot(pDir->mBlock);
+			else
+				block = clusterChainRead(pDir->mFirstCluster);
 
 			sFileEntry* Entry = (sFileEntry*) block->data();
 			sFileEntry* LastEntry = Entry + (block->size() / sizeof(fat::sFileEntry));
@@ -281,6 +304,9 @@ namespace firy {
 			return true;
 		}
 
+		/**
+		 * Load an individual entry in a directory listing
+		 */
 		spNode cFAT::entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock) {
 			spNode result;
 			sEntry* entry = 0;
@@ -295,7 +321,6 @@ namespace firy {
 				result = Dir;
 				entry = Dir.operator->();
 
-
 				Dir->mSizeInBytes = directorySectors(StartCluster) * blockSize();
 			} else {
 				spFATFile File = std::make_shared<sFATFile>(weak_from_this());
@@ -306,7 +331,7 @@ namespace firy {
 			}
 
 			entry->mFirstCluster = StartCluster;
-			entry->mBlock = clusterToBlock(StartCluster, false);
+			entry->mBlock = clusterToBlock(StartCluster);
 			result->mName.append((const char*)pEntry->Name, 8);
 			result->mName = rtrim(result->mName, 0x20);	// Trim spaces
 
@@ -315,29 +340,33 @@ namespace firy {
 				result->mName.append((const char*)pEntry->Extension, 3);
 				result->mName = rtrim(result->mName, 0x20);	// Trim spaces
 			}
-			if (result->mName == "SYSTEM") {
-				std::cout << "a";
-			}
 			return result;
 		}
 
+		/**
+		 * Read a file from the filesystem
+		 */
 		spBuffer cFAT::filesystemRead(spNode pFile) {
 			spFATFile File = std::dynamic_pointer_cast<sFATFile>(pFile);
 			if (!File)
 				return {};
 
-			auto buffer = clusterChainRead(File->mFirstCluster, false);
+			auto buffer = clusterChainRead(File->mFirstCluster);
 			buffer->resize(File->mSizeInBytes);
 			return buffer;
 		}
 
+		/**
+		 *
+		 */
 		tBlock cFAT::blockCount() const {
 			return (mBootBlock->mBiosParams.sectors_s ? mBootBlock->mBiosParams.sectors_s : mBootBlock->mBiosParams.sectors_l);
 		}
 
+		/**
+		 *
+		 */
 		size_t cFAT::blockSize(const tBlock pBlock) const {
-			if (mType == FAT32)
-				return 512;
 
 			if (!mBootBlock)
 				return cBlocks::blockSize(pBlock);
@@ -345,6 +374,9 @@ namespace firy {
 			return mBootBlock->mBiosParams.bytepersec;
 		}
 
+		/**
+		 *
+		 */
 		tBlock cFAT::blockToCluster(const tBlock pBlock) const {
 			return ((pBlock - mBlockData) / mBootBlock->mBiosParams.secperclus) + 2;
 		}
@@ -353,13 +385,16 @@ namespace firy {
 			return false;
 		}
 
+		/**
+		 * Return free clusters
+		 */
 		std::vector<tBlock> cFAT::blocksFree() const {
 			std::vector<tBlock> free;
 			tBlock clusternumber = 0;
 
 			for (auto& cluster : mClusterMap) {
 				if (!cluster) {
-					auto block = clusterToBlock(clusternumber, false);
+					auto block = clusterToBlock(clusternumber);
 					for(auto current = block; current < block + mBootBlock->mBiosParams.secperclus; ++current)
 						free.push_back( current );
 				}
