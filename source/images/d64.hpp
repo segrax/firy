@@ -28,7 +28,7 @@ namespace firy {
 		class cD64 : public cDisk<interfaces::cTracks> {
 
 		public:
-			cD64();
+			cD64(spSource pSource);
 
 			virtual std::string filesystemNameGet();
 			virtual bool filesystemPrepare();

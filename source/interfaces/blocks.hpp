@@ -7,11 +7,11 @@ namespace firy {
 		/**
 		 * Provide a block read/write interface
 		 */
-		class cBlocks {
+		class cBlocks : public interfaces::cSource {
 		public:
-			cBlocks();
+			cBlocks(spSource pSource);
 
-			virtual spBuffer blockRead(const tBlock pBlock) = 0;
+			virtual spBuffer blockRead(const tBlock pBlock);
 
 			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer);
 
@@ -34,6 +34,13 @@ namespace firy {
 			 * Number of bytes per block
 			 */
 			virtual size_t blockSize(const tBlock pBlock = 0) const = 0;
+
+			/**
+			 * Load an object from a block
+			 */
+			template <class tBlockType> std::shared_ptr<tBlockType> blockObjectGet(const size_t pBlock) {
+				return sourceObjectGet<tBlockType>(pBlock * blockSize());
+			}
 
 		protected:
 

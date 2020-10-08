@@ -20,13 +20,13 @@ namespace firy {
 		/**
 		 * D64 Constructor
 		 */
-		cD64::cD64() : cDisk<interfaces::cTracks>() {
+		cD64::cD64(spSource pSource) : cDisk<interfaces::cTracks>(pSource) {
 
 			mTrackCount = 35;
 		}
 
 		std::string cD64::filesystemNameGet() {
-			uint8_t* sectorptr = getBufferPtr(sectorOffset(tTrackSector{ 18,1 }));
+			uint8_t* sectorptr = sourceBufferPtr(sectorOffset(tTrackSector{ 18,1 }));
 
 			return stringRip(sectorptr + 0x90, 0xA0, 16);
 		}
@@ -44,7 +44,7 @@ namespace firy {
 			while (	(ts.first > 0 && ts.first <= trackCount()) && 
 					(ts.second <= sectorCount(ts.first))) {
 
-				auto sectorBuffer = getBufferPtr(sectorOffset(ts));
+				auto sectorBuffer = sourceBufferPtr(sectorOffset(ts));
 				auto buffer = sectorBuffer;
 				if (!buffer)
 					break;
@@ -85,7 +85,7 @@ namespace firy {
 			for (auto& ts : File->mChain) {
 				bool noCopy = false;
 
-				uint8_t* sectorptr = getBufferPtr(sectorOffset(ts));
+				uint8_t* sectorptr = sourceBufferPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					File->mChainBroken = true;
 					return buffer;
@@ -137,7 +137,7 @@ namespace firy {
 				//} else
 				//	mBamRealTracks[currentTrack][currentSector] = pFile;
 
-				uint8_t* sectorptr = getBufferPtr(sectorOffset(ts));
+				uint8_t* sectorptr = sourceBufferPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					pFile->mChainBroken = true;
 					return false;
@@ -147,6 +147,10 @@ namespace firy {
 				ts = { sectorptr[0], sectorptr[1] };
 			}
 			return true;
+		}
+
+		bool cD64::filesystemBitmapLoad() {
+			return false;
 		}
 
 		spD64File cD64::filesystemEntryProcess(const uint8_t* pBuffer) {

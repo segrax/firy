@@ -119,7 +119,7 @@ namespace firy {
 
 		}
 		
-		cADF::cADF() : cDisk<interfaces::cBlocks>() {
+		cADF::cADF(spSource pSource) : cDisk<interfaces::cBlocks>(pSource) {
 			mBlockSize = gBytesPerBlock;
 
 			mBlockFirst = 0;
@@ -305,7 +305,7 @@ namespace firy {
 					if (!blockFile->dataBlocks[index])
 						break;
 
-					auto block = getBufferPtr(blockFile->dataBlocks[index] * blockSize());
+					auto block = sourceBufferPtr(blockFile->dataBlocks[index] * blockSize());
 					auto size = min(totalbytes, blockSize());
 					memcpy(destptr, block, size);
 					destptr += size;
@@ -324,7 +324,7 @@ namespace firy {
 						if (!blockExt->dataBlocks[index])
 							break;
 
-						auto block = getBufferPtr(blockExt->dataBlocks[index] * blockSize());
+						auto block = sourceBufferPtr(blockExt->dataBlocks[index] * blockSize());
 						auto size = min(totalbytes, blockSize());
 						memcpy(destptr, block, size);
 						destptr += size;
@@ -374,14 +374,14 @@ namespace firy {
 		}
 
 		adf::eType cADF::diskType() const {
-			if ((mImageSize >= 512 * 11 * 2 * 80) &&
-				(mImageSize <= 512 * 11 * 2 * 83))
+			if ((sourceSize() >= 512 * 11 * 2 * 80) &&
+				(sourceSize() <= 512 * 11 * 2 * 83))
 				return(eType::FLOPPY_DD);
 
-			else if (mImageSize == 512 * 22 * 2 * 80)
+			else if (sourceSize() == 512 * 22 * 2 * 80)
 				return(eType::FLOPPY_HD);
 
-			else if (mImageSize > 512 * 22 * 2 * 80)
+			else if (sourceSize() > 512 * 22 * 2 * 80)
 				return(eType::HARDDRIVE);
 			
 			return eType::UNKNOWN;
@@ -454,7 +454,7 @@ namespace firy {
 				mBlockLast = (80 * 2 * 11) - 1;
 				break;
 			case adf::eType::HARDDRIVE:
-				mBlockLast = (mImageSize / 512) - 1;
+				mBlockLast = (sourceSize() / 512) - 1;
 				break;
 			default:
 				return false;
@@ -466,6 +466,9 @@ namespace firy {
 			return (mRootBlock != 0);
 		}
 
+		/**
+		 * Swap the endian in blocks
+		 */
 		template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
 
 			if (typeid(tBlockType) == typeid(adf::sBootBlock))
@@ -493,8 +496,11 @@ namespace firy {
 				swapEndian((uint8_t*)pBlock.get(), 5);
 		}
 
+		/**
+		 * 
+		 */
 		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoadNoCheck(const size_t pBlock) {
-			auto block = cDisk::blockLoad<tBlockType>(pBlock);
+			auto block = blockObjectGet<tBlockType>(pBlock);
 			if (!block)
 				return 0;
 
@@ -506,7 +512,7 @@ namespace firy {
 		 * Read a block
 		 */
 		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoad(const size_t pBlock) {
-			auto block = cDisk::blockLoad<tBlockType>(pBlock);
+			auto block = blockObjectGet<tBlockType>(pBlock);
 			if (!block)
 				return 0;
 
@@ -526,9 +532,8 @@ namespace firy {
 					}
 				}
 				return block;
-			}
 
-			if (typeid(tBlockType) == typeid(adf::sBitmapBlock)) {
+			} else if (typeid(tBlockType) == typeid(adf::sBitmapBlock)) {
 				checksum = blockChecksum((const uint8_t*)block.get(), gBytesPerBlock, 0);
 			}
 

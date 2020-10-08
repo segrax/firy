@@ -201,7 +201,7 @@ namespace firy {
 		class cADF : public cDisk<interfaces::cBlocks> {
 
 		public:
-			cADF();
+			cADF(spSource pSource);
 
 			virtual std::string filesystemNameGet() const;
 			virtual bool filesystemPrepare();

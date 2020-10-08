@@ -132,10 +132,12 @@
     <ClInclude Include="..\..\source\images\d64.hpp" />
     <ClInclude Include="..\..\source\images\disk.hpp" />
     <ClInclude Include="..\..\source\images\fat.hpp" />
-    <ClInclude Include="..\..\source\images\image.hpp" />
     <ClInclude Include="..\..\source\interfaces\blocks.hpp" />
+    <ClInclude Include="..\..\source\interfaces\isource.hpp" />
     <ClInclude Include="..\..\source\interfaces\tracks.hpp" />
     <ClInclude Include="..\..\source\resources.hpp" />
+    <ClInclude Include="..\..\source\sources\file.hpp" />
+    <ClInclude Include="..\..\source\sources\source.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\filesystem\interface.cpp" />
@@ -144,10 +146,11 @@
     <ClCompile Include="..\..\source\images\d64.cpp" />
     <ClCompile Include="..\..\source\images\disk.cpp" />
     <ClCompile Include="..\..\source\images\fat.cpp" />
-    <ClCompile Include="..\..\source\images\image.cpp" />
     <ClCompile Include="..\..\source\interfaces\blocks.cpp" />
     <ClCompile Include="..\..\source\interfaces\tracks.cpp" />
     <ClCompile Include="..\..\source\resources.cpp" />
+    <ClCompile Include="..\..\source\sources\file.cpp" />
+    <ClCompile Include="..\..\source\sources\source.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

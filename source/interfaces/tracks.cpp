@@ -6,7 +6,7 @@ namespace firy {
 		/**
 		 * Constructor
 		 */
-		cTracks::cTracks() {
+		cTracks::cTracks(spSource pSource) : cSource(pSource) {
 			mTrackCount = 0;
 		}
 
@@ -48,8 +48,8 @@ namespace firy {
 		/**
 		 * Read a track
 		 */
-		spBuffer cTracks::trackRead(const tTrack pTrack) const {
-			return imageBufferCopy(trackOffset(pTrack), trackSize(pTrack));
+		spBuffer cTracks::trackRead(const tTrack pTrack) {
+			return sourceBufferCopy(trackOffset(pTrack), trackSize(pTrack));
 		}
 
 		/**
@@ -62,8 +62,8 @@ namespace firy {
 		/**
 		 * Read a sector
 		 */
-		spBuffer cTracks::sectorRead(const tTrackSector pTS) const {
-			return imageBufferCopy(sectorOffset(pTS), sectorSize(pTS.first));
+		spBuffer cTracks::sectorRead(const tTrackSector pTS) {
+			return sourceBufferCopy(sectorOffset(pTS), sectorSize(pTS.first));
 		}
 
 		/**

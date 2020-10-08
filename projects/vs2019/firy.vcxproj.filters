@@ -22,13 +22,13 @@
     <Filter Include="Source Files\filesystem">
       <UniqueIdentifier>{330f88ad-c96f-417f-8c47-898006864a95}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\sources">
+      <UniqueIdentifier>{cd48c85e-4836-4985-b73e-03db7ebbef09}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\firy.hpp">
       <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\images\image.hpp">
-      <Filter>Source Files\images</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\images\d64.hpp">
       <Filter>Source Files\images</Filter>
@@ -63,15 +63,21 @@
     <ClInclude Include="..\..\source\images\fat.hpp">
       <Filter>Source Files\images</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\sources\source.hpp">
+      <Filter>Source Files\sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\sources\file.hpp">
+      <Filter>Source Files\sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\interfaces\isource.hpp">
+      <Filter>Source Files\interfaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\images\d64.cpp">
-      <Filter>Source Files\images</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\source\images\image.cpp">
       <Filter>Source Files\images</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\resources.cpp">
@@ -94,6 +100,12 @@
     </ClCompile>
     <ClCompile Include="..\..\source\images\fat.cpp">
       <Filter>Source Files\images</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\sources\file.cpp">
+      <Filter>Source Files\sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\sources\source.cpp">
+      <Filter>Source Files\sources</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

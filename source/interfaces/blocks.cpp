@@ -3,7 +3,7 @@
 namespace firy {
 	namespace interfaces {
 
-		cBlocks::cBlocks() {
+		cBlocks::cBlocks(spSource pSource) : cSource(pSource) {
 			mBlockCount = 0;
 			mBlockSize = 0;
 		}
@@ -22,6 +22,10 @@ namespace firy {
 
 		bool cBlocks::blockWrite(const tBlock pBlock, const spBuffer pBuffer) {
 			return false;
+		}
+
+		spBuffer cBlocks::blockRead(const tBlock pBlock) {
+			return sourceBufferCopy(blockOffset(pBlock), blockSize());
 		}
 	}
 }

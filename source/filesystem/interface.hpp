@@ -32,6 +32,7 @@ namespace firy {
 			virtual bool filesystemBitmapLoad() = 0;
 
 			spDirectory mFsRoot;
+			std::string mFsPathSeperator;
 		};
 
 	}

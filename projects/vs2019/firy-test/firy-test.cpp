@@ -42,18 +42,16 @@ bool DumpBlocksFree(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std:
 
 template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
 
-	std::shared_ptr<tImage> img = std::make_shared<tImage>();
-	img->imageOpen(pImage);
+	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::sources::OpenFile(pImage));
 	img->filesystemPrepare();
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
 
 int main()
 {
-	/*
-	std::shared_ptr<firy::images::cD64> D64 = std::make_shared<firy::images::cD64>();
+	
+	auto D64 = std::make_shared<firy::images::cD64>( firy::sources::OpenFile("test.d64") );
 
-	D64->imageOpen("test.d64");
 	D64->filesystemPrepare();
 	auto test = D64->filesystemFile("CREEP");
 
@@ -62,14 +60,13 @@ int main()
 
 	auto track = D64->trackRead(18);
 
-	firy::gResources->FileSave("d:\\test", track);*/
-	/*
+	firy::gResources->FileSave("d:\\test", track);
+	
 	DumpImageBlocksFree<firy::images::cADF>("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
 
 
 	{
-		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-		ADF->imageOpen("Robs_Workbench2.0.adf");
+		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>(firy::sources::OpenFile("Robs_Workbench2.0.adf"));
 		ADF->filesystemPrepare();
 		auto path = ADF->filesystemPath("/");
 
@@ -88,65 +85,10 @@ int main()
 		auto data = file->read();
 		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
 		std::cout << std::string((char*)data->data(), data->size());
-	}*/
-
-	/*
-	{
-	std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-	ADF->imageOpen("test.adf");
-	ADF->filesystemPrepare();
-	auto path = ADF->filesystemPath("/");
-
-	for (auto& entry : path->mNodes) {
-		std::cout << entry->mName << "\n";
 	}
 
-	auto file = ADF->filesystemFile("/Solution");
-	auto data = file->read();
-	std::cout << std::string((char*)data->data(), data->size());
-	}*/
-	/*
-	auto files = firy::gResources->directoryList(firy::gResources->getcwd(), "adf");
-
-	for (auto& file : files) {
-		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-		ADF->imageOpen(file);
-		if (!ADF->filesystemPrepare()) {
-			std::cout << file << " failed\n";
-			continue;
-		}
-
-		auto name = file.substr(file.find_last_of("\\") + 1);
-		name = name.substr(0, name.size() - 4); // remove extension
-
-		dumpfreeblocks(ADF, "d://blocks//" + name);
-	}*/
-
-	/*{
-		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>();
-		ADF->imageOpen("Mo_Utes.adf");
-		//ADF->imageOpen("hardone.hdf");
-		ADF->filesystemPrepare();
-
-		dumpfreeblocks(ADF, "d://track");
-
-		auto path = ADF->filesystemPath("/Games/");
-
-		if (path) {
-			for (auto& entry : path->mNodes) {
-				std::cout << entry->mName << "\n";
-			}
-		}
-
-		//auto file = ADF->filesystemFile("/Solution");
-		//auto data = file->read();
-		//std::cout << std::string((char*)data->data(), data->size());
-	}*/
-	
-	
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
-		FAT->imageOpen("Microsoft.MS-DOS.6.2.Upgrade.1of3.img");
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -159,8 +101,7 @@ int main()
 		auto data = file->read();
 	}
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
-		FAT->imageOpen("EA_Engine_Assy.img");
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("EA_Engine_Assy.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -189,9 +130,8 @@ int main()
 
 
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>();
-		FAT->imageOpen("Win98.img");
-		//FAT->imageOpen("testmbr.img");
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("Win98.img"));
+		//FAT->sourceOpen("testmbr.img");
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 

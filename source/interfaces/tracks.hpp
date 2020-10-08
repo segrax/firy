@@ -10,20 +10,18 @@ namespace firy {
 		/**
 		 * Provide a track/sector read/write interface
 		 */
-		class cTracks {
+		class cTracks : public interfaces::cSource {
 		public:
 
 			/**
 			 * Constructor
 			 */
-			cTracks();
-
-			virtual std::shared_ptr<tBuffer> imageBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) const = 0;
+			cTracks(spSource pSource);
 
 			/**
 			 * Read the provided track
 			 */
-			virtual spBuffer trackRead(const tTrack pTrack) const;
+			virtual spBuffer trackRead(const tTrack pTrack);
 
 			/**
 			 * Write 'pBuffer' at provided track
@@ -43,7 +41,7 @@ namespace firy {
 			/**
 			 * Read the provided T/S
 			 */
-			virtual spBuffer sectorRead(const tTrackSector pTS) const;
+			virtual spBuffer sectorRead(const tTrackSector pTS);
 
 			/**
 			 * Write 'pBuffer' at provided T/S

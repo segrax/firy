@@ -161,7 +161,7 @@ namespace firy {
 		class cFAT : public cDisk<interfaces::cBlocks> {
 
 		public:
-			cFAT();
+			cFAT(spSource pSource);
 
 			virtual std::string filesystemNameGet() const;
 			virtual bool filesystemPrepare();
@@ -185,7 +185,6 @@ namespace firy {
 			virtual bool filesystemBitmapLoad();
 
 		private:
-			tBlock getFirstDataSector() const;
 			tBlock fatSectorNext(tBlock pCluster) const;
 			tBlock directorySectors(tBlock pStart) const;
 			tBlock clusterToBlock(tBlock pCluster) const;

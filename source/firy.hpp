@@ -16,8 +16,10 @@ namespace firy {
 }
 
 #include "resources.hpp"
-#include "images/image.hpp"
+#include "sources/source.hpp"
+#include "sources/file.hpp"
 
+#include "interfaces/isource.hpp"
 #include "interfaces/blocks.hpp"
 #include "interfaces/tracks.hpp"
 

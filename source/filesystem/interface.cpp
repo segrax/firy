@@ -61,10 +61,14 @@ namespace firy {
 
 		cInterface::cInterface() {
 			mFsRoot = 0;
+			mFsPathSeperator = "/";
 		}
 
+		/**
+		 * Find a node inside the FS
+		 */
 		spNode cInterface::filesystemNode(const std::string& pPath) {
-			auto nodesremain = tokenize(pPath, "/");
+			auto nodesremain = tokenize(pPath, mFsPathSeperator);
 			spNode node = mFsRoot;
 
 			for (auto& remain : nodesremain) {
@@ -76,10 +80,16 @@ namespace firy {
 			return node;
 		}
 
+		/**
+		 * Get a path inside the FS
+		 */
 		spDirectory cInterface::filesystemPath(const std::string& pPath) {
 			return std::dynamic_pointer_cast<sDirectory>(filesystemNode(pPath));
 		}
 
+		/**
+		 * Get a file inside the FS
+		 */
 		spFile cInterface::filesystemFile(const std::string& pPath) {
 			return std::dynamic_pointer_cast<sFile>(filesystemNode(pPath));
 		}
