@@ -42,7 +42,7 @@ bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::str
 
 template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
 
-	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::gFiry->openFile(pImage));
+	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::gFiry->openLocalFile(pImage));
 	img->filesystemPrepare();
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
@@ -50,45 +50,48 @@ template <class tImage> void DumpImageBlocksFree(const std::string& pImage, cons
 int main()
 {
 	
-	auto D64 = std::make_shared<firy::images::cD64>( firy::gFiry->openFile("test.d64") );
+	auto aa = firy::gFiry->openImage("Robs_Workbench2.0.adf");
 
-	D64->filesystemPrepare();
-	auto test = D64->filesystemFile("CREEP");
 
-	auto buffer = test->read();
-	auto data = buffer->data();
+	return 0;
+	{
+		auto D64 = firy::gFiry->openImageFile<firy::images::cD64>("test.d64");
+		auto test = D64->filesystemFile("CREEP");
 
-	auto track = D64->trackRead(18);
+		auto buffer = test->read();
+		auto data = buffer->data();
 
-	firy::gResources->FileSave("d:\\test", track);
-	
-	DumpImageBlocksFree<firy::images::cADF>("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
+		auto track = D64->trackRead(18);
+
+		firy::gResources->FileSave("d:\\test", track);
+
+		DumpImageBlocksFree<firy::images::cADF>("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
+	}
 
 
 	{
-		auto ADF = std::make_shared<firy::images::cADF>(firy::gFiry->openFile("Robs_Workbench2.0.adf"));
-		ADF->filesystemPrepare();
-		auto path = ADF->filesystemPath("/");
+		auto adf = firy::gFiry->openImageFile<firy::images::cADF>("Robs_Workbench2.0.adf");
+		auto path = adf->filesystemPath("/");
 
 		int year, month, days;
 
-		firy::images::adf::adfDays2Date(ADF->mRootBlock->days, &year, &month, &days);
+		firy::images::adf::adfDays2Date(adf->mRootBlock->days, &year, &month, &days);
 
 		std::cout << "Year: " << year << " Month: " << month << " Day: " << days << "\n";
-		std::cout << "Label: " << ADF->filesystemNameGet() << "\n";
+		std::cout << "Label: " << adf->filesystemNameGet() << "\n";
 
 		for (auto& entry : path->mNodes) {
 			std::cout << entry->mName << "\n";
 		}
 
-		auto file = ADF->filesystemFile("/S/startup-sequence");
+		auto file = adf->filesystemFile("/S/startup-sequence");
 		auto data = file->read();
 		std::cout << "\n\ncontent of /S/startup-sequence\n\n";
 		std::cout << std::string((char*)data->data(), data->size());
 	}
 
 	{
-		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
+		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -101,7 +104,7 @@ int main()
 		auto data = file->read();
 	}
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("EA_Engine_Assy.img"));
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("EA_Engine_Assy.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -130,7 +133,7 @@ int main()
 
 
 	{
-		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("Win98.img"));
+		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("Win98.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 

@@ -3,18 +3,19 @@
 
 namespace firy {
 	namespace images {
+		namespace d64 {
+			/**
+			 * Maximum number of bytes which can be stored in a block
+			 */
+			const size_t gBytesPerSector = 254;
 
-		/**
-		 * Maximum number of bytes which can be stored in a block
-		 */
-		const size_t gBytesPerSector = 254;
-
-		/**
-		 * D64File Constructor
-		 */
-		sD64File::sD64File(wpFilesystem pFilesystem) : sFile(pFilesystem) {
-			mType = eD64FileType_DEL;
-			mSizeInSectors = 0;
+			/**
+			 * D64File Constructor
+			 */
+			sFile::sFile(wpFilesystem pFilesystem) : filesystem::sFile(pFilesystem) {
+				mType = eFileType_DEL;
+				mSizeInSectors = 0;
+			}
 		}
 
 		/**
@@ -22,27 +23,28 @@ namespace firy {
 		 */
 		cD64::cD64(spSource pSource) : cImageAccess<access::cTracks>(), access::cInterface(pSource) {
 
+			// TODO: Determine tracks based on filesize
 			mTrackCount = 35;
 		}
 
+		/**
+		 * Get the name of the disk
+		 */
 		std::string cD64::filesystemNameGet() {
-			uint8_t* sectorptr = chunkPtr(sectorOffset(tTrackSector{ 18,1 }));
-
-			return stringRip(sectorptr + 0x90, 0xA0, 16);
+			return mLabel;
 		}
 
 		/**
 		 * Load the D64 directory
 		 */
 		bool cD64::filesystemPrepare() {
-			tTrackSector ts(18, 1);
-
-			mFsRoot = std::make_shared<firy::filesystem::sDirectory>( weak_from_this() );
+			mFsRoot = std::make_shared<firy::filesystem::sDirectory>(weak_from_this());
 			mFsRoot->mName = "/";
 
 			// Loop until we reach the end of the directory
-			while (	(ts.first > 0 && ts.first <= trackCount()) && 
-					(ts.second <= sectorCount(ts.first))) {
+			tTrackSector ts(18, 1);
+			while ((ts.first > 0 && ts.first <= trackCount()) &&
+				(ts.second <= sectorCount(ts.first))) {
 
 				auto sectorBuffer = chunkPtr(sectorOffset(ts));
 				auto buffer = sectorBuffer;
@@ -51,7 +53,7 @@ namespace firy {
 
 				// 8 entries per sector, 0x20 bytes per entry
 				for (uint8_t i = 0; i <= 7; ++i, buffer += 0x20) {
-					spD64File file = filesystemEntryProcess(buffer);
+					d64::spFile file = filesystemEntryProcess(buffer);
 					if (file)
 						mFsRoot->mNodes.push_back(file);
 				}
@@ -62,15 +64,15 @@ namespace firy {
 					break;
 				ts = std::move(nextTs);
 			}
-			return true;
+			return filesystemBitmapLoad();
 		}
 
 		/**
-		 * Load a file off the D64
-		 */
+			* Load a file off the D64
+			*/
 		spBuffer cD64::filesystemRead(spNode pNode) {
-			uint16_t bytesCopied = 0, copySize = gBytesPerSector;
-			spD64File File = std::dynamic_pointer_cast<sD64File>(pNode);
+			uint16_t bytesCopied = 0, copySize = d64::gBytesPerSector;
+			d64::spFile File = std::dynamic_pointer_cast<d64::sFile>(pNode);
 			if (!File)
 				return 0;
 
@@ -98,9 +100,9 @@ namespace firy {
 				// Last Sector of file? 
 				if (!ts.first) {
 					// Bytes used by the final sector stored in the T/S chain sector value
-					copySize = (uint16_t) (ts.second - 1);
+					copySize = (uint16_t)(ts.second - 1);
 					// Adjust bufer size to match the final file size
-					buffer->resize(buffer->size() - (gBytesPerSector - copySize));
+					buffer->resize(buffer->size() - (d64::gBytesPerSector - copySize));
 				}
 
 				// Copy sector data, excluding the T/S Chain data
@@ -116,22 +118,22 @@ namespace firy {
 		}
 
 		/**
-		 * Calculate number of sectors for this track
-		 */
+			* Calculate number of sectors for this track
+			*/
 		tSector cD64::sectorCount(const tTrack pTrack) const {
 			return ((21 - (pTrack > 17) * 2) - (pTrack > 24) - (pTrack > 30));
 		}
-		
+
 		/**
-		 * Fixed sector size
-		 */
+			* Fixed sector size
+			*/
 		size_t cD64::sectorSize(const tTrack pTrack) const {
 			return 256;
 		}
 
 		/**
-		 * Load the T/S chain for a file
-		 */
+			* Load the T/S chain for a file
+			*/
 		bool cD64::filesystemChainLoad(spFile pFile) {
 			tTrackSector ts = pFile->mChain[0];
 			pFile->mChain.clear();
@@ -159,17 +161,44 @@ namespace firy {
 		}
 
 		bool cD64::filesystemBitmapLoad() {
+			auto block = sectorRead({ 18,0 });
+
+			mDosVersion = block->getByte(2);
+			mDosType = block->getWordLE(0xA5);
+
+			mLabel = stringRip(&block->at(0x90), 0xA0, 16);
+
+			tTrackSector ts = { 1, 04 };
+			for (; ts.first < 35; ++ts.first) {
+				d64::sTrackBam bam;
+
+				bam.mFreeSectors = block->getByte(ts.second++);
+				bam.m0 = block->getByte(ts.second++);
+				bam.m1 = block->getByte(ts.second++);
+				bam.m2 = block->getByte(ts.second++);
+			}
+
+			switch (mDosType) {
+				case '2A':	// CBM DOS v2.6
+				case '2P':	// PrologicDOS, ProSpeed 
+					return true;
+
+				default:
+					// 
+					break;
+			}
+
 			return false;
 		}
 
 		/**
 		 *
 		 */
-		spD64File cD64::filesystemEntryProcess(const uint8_t* pBuffer) {
-			spD64File file = std::make_shared<sD64File>( weak_from_this() );
+		d64::spFile cD64::filesystemEntryProcess(const uint8_t* pBuffer) {
+			d64::spFile file = std::make_shared<d64::sFile>(weak_from_this());
 
 			// Get the filetype
-			file->mType = (eD64FileType)(pBuffer[0x02] & 0x0F);
+			file->mType = (d64::eFileType)(pBuffer[0x02] & 0x0F);
 
 			// Get the filename
 			file->mName = stringRip(pBuffer + 0x05, 0xA0, 16);

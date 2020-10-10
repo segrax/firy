@@ -72,6 +72,9 @@
     <ClInclude Include="..\..\source\filesystem\filesystem.hpp">
       <Filter>Source Files\filesystem</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\buffer.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">
@@ -106,6 +109,9 @@
     </ClCompile>
     <ClCompile Include="..\..\source\filesystem\filesystem.cpp">
       <Filter>Source Files\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\buffer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

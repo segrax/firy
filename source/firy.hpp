@@ -10,10 +10,9 @@
 
 namespace firy {
 	typedef size_t tSize;
-
-	typedef std::vector<uint8_t> tBuffer;
-	typedef std::shared_ptr<tBuffer> spBuffer;
 }
+
+#include "buffer.hpp"
 
 #include "resources.hpp"
 #include "sources/source.hpp"
@@ -34,12 +33,12 @@ namespace firy {
 
 	extern std::shared_ptr<cResources> gResources;
 
-	inline uint16_t readWord(const void* buffer) {
-		const uint16_t* wordBytes = (const uint16_t*)buffer;
-		return *wordBytes;
+	inline void* bufferOffset(spBuffer pBuffer, const size_t& pBytes) {
+		if (pBytes > pBuffer->size())
+			return 0;
+		return pBuffer->data() + pBytes;
 	}
 
-	// Read a word from the buffer
 	inline uint16_t readLEWord(const void* buffer) {
 		const uint16_t* wordBytes = (const uint16_t*)buffer;
 		return *wordBytes;
@@ -51,13 +50,11 @@ namespace firy {
 
 	inline uint16_t readBEWord(const void* buffer) {
 		const uint8_t* bytes = (const uint8_t*)buffer;
-
 		return uint16_t((bytes[0] << 8) + bytes[1]);
 	}
 
 	inline uint32_t readBEDWord(const void* buffer) {
 		const uint8_t* bytes = (const uint8_t*)buffer;
-
 		return uint32_t((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + (bytes[3]));
 	}
 
@@ -97,7 +94,11 @@ namespace firy {
 	public:
 		cFiry();
 
-		spSource openFile(const std::string pFilename);
+		spSource openLocalFile(const std::string& pFilename);
+
+		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, const bool pIgnoreValid = false);
+
+		spImage openImage(const std::string& pFilename);
 
 	};
 

@@ -1,4 +1,5 @@
 namespace firy {
+
 	class cResources {
 
 	public:

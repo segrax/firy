@@ -126,6 +126,7 @@
     <ClInclude Include="..\..\source\access\blocks.hpp" />
     <ClInclude Include="..\..\source\access\access.hpp" />
     <ClInclude Include="..\..\source\access\tracks.hpp" />
+    <ClInclude Include="..\..\source\buffer.hpp" />
     <ClInclude Include="..\..\source\filesystem\directory.hpp" />
     <ClInclude Include="..\..\source\filesystem\file.hpp" />
     <ClInclude Include="..\..\source\filesystem\filesystem.hpp" />
@@ -142,6 +143,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\source\access\blocks.cpp" />
     <ClCompile Include="..\..\source\access\tracks.cpp" />
+    <ClCompile Include="..\..\source\buffer.cpp" />
     <ClCompile Include="..\..\source\filesystem\filesystem.cpp" />
     <ClCompile Include="..\..\source\firy.cpp" />
     <ClCompile Include="..\..\source\images\adf.cpp" />

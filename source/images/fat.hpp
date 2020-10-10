@@ -57,9 +57,9 @@ namespace firy {
 			struct sBiosExParam {
 				uint8_t  mUnit;				// int 13h drive#
 				uint8_t  mHead;				// 
-				uint8_t  mSignature;			// 0x28 or 0x29
+				uint8_t  mSignature;		// 0x28 or 0x29
 				uint32_t mSerial;			// serial#
-				uint8_t  mLabel[11];			// volume label
+				char	 mLabel[11];		// volume label
 				uint8_t  mFilesystemID[8];	// 
 			};
 
@@ -137,34 +137,35 @@ namespace firy {
 				uint16_t StartCluster;
 				uint32_t FileLength;
 			};
-		}
 #pragma pack()
 
-		struct sEntry {
-			tBlock mBlock;
-			tBlock mFirstCluster;
-		};
+			struct sEntry {
+				tBlock mBlock;
+				tBlock mFirstCluster;
+			};
+
+			/**
+			 * PC: Representation of a file
+			 */
+			struct sFile : public sEntry, public filesystem::sFile {
+				size_t mSizeInSectors;
+
+				sFile(wpFilesystem pFilesystem);
+			};
+
+			struct sDir : public sEntry, public filesystem::sDirectory {
+				size_t mSizeInBytes;
+
+				sDir(wpFilesystem pFilesystem);
+			};
+
+			typedef std::shared_ptr<sFile> spFile;
+			typedef std::shared_ptr<sDir> spDir;
+		}
+
 
 		/**
-		 * PC: Representation of a file
-		 */
-		struct sFATFile : public sEntry, public filesystem::sFile {
-			size_t mSizeInSectors;
-
-			sFATFile(wpFilesystem pFilesystem);
-		};
-
-		struct sFATDir : public sEntry, public filesystem::sDirectory {
-			size_t mSizeInBytes;
-
-			sFATDir(wpFilesystem pFilesystem);
-		};
-
-		typedef std::shared_ptr<sFATFile> spFATFile;
-		typedef std::shared_ptr<sFATDir> spFATDir;
-
-		/**
-		 * MS-DOS: FAT
+		 * File Allocation Table
 		 */
 		class cFAT : public cImageAccess<access::cBlocks> {
 
@@ -187,9 +188,16 @@ namespace firy {
 			spBuffer clusterChainReadRoot(size_t pStartBlock);
 			spBuffer clusterChainRead(size_t pCluster);
 
+			virtual std::string imageType() const {
+				return "FAT";
+			}
+
+			virtual std::vector<std::string> imageExtensions() const {
+				return { "img" };
+			}
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
-			virtual spFATFile filesystemEntryProcess(const uint8_t* pBuffer);
+			virtual fat::spFile filesystemEntryProcess(const uint8_t* pBuffer);
 			virtual bool filesystemBitmapLoad();
 
 		private:
@@ -200,7 +208,7 @@ namespace firy {
 
 			spNode entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock);
 
-			bool entrysLoad(spFATDir pDir);
+			bool entrysLoad(fat::spDir pDir);
 
 			std::shared_ptr<fat::sBootRecordBlock> mBootBlock;
 

@@ -8,11 +8,27 @@ namespace firy {
 		class cInterface {
 
 		public:
+			/**
+			 * Source-Access Interface
+			 *
+			 * Throws if shared_ptr is empty
+			 */
 			cInterface(spSource pSource) {
 				mSource = pSource;
+
+				assertSource();
 			}
 
 		protected:
+
+			/**
+			 * Throw an exception if a source wasn't provided
+			 */
+			inline void assertSource() const {
+				if (!mSource)
+					throw new std::exception("Source was not found");
+			}
+
 			/**
 			 * Get the size of the source in bytes
 			 */

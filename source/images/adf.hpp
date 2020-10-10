@@ -215,6 +215,13 @@ namespace firy {
 
 			adf::eType diskType() const;
 
+			virtual std::string imageType() const {
+				return "Amiga Disk Format";
+			}
+
+			virtual std::vector<std::string> imageExtensions() const {
+				return { "adf", "hdf" };
+			}
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
 			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
@@ -232,6 +239,8 @@ namespace firy {
 
 			spNode entryLoad(const tBlock pOffset);
 			bool entrysLoad(adf::spADFDir pNode);
+
+
 		public:
 			std::shared_ptr<adf::sBootBlock> mBootBlock;
 			std::shared_ptr<adf::sRootBlock> mRootBlock;
