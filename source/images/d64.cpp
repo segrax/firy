@@ -46,20 +46,19 @@ namespace firy {
 			while ((ts.first > 0 && ts.first <= trackCount()) &&
 				(ts.second <= sectorCount(ts.first))) {
 
-				auto sectorBuffer = chunkPtr(sectorOffset(ts));
-				auto buffer = sectorBuffer;
-				if (!buffer)
+				auto sectorBuffer = sectorRead(ts);
+				if (!sectorBuffer)
 					break;
 
 				// 8 entries per sector, 0x20 bytes per entry
-				for (uint8_t i = 0; i <= 7; ++i, buffer += 0x20) {
-					d64::spFile file = filesystemEntryProcess(buffer);
+				for (uint8_t i = 0; i <= 7; ++i) {
+					d64::spFile file = filesystemEntryProcess(sectorBuffer, i * 0x20);
 					if (file)
 						mFsRoot->mNodes.push_back(file);
 				}
 
 				// Get the next Track/Sector in the chain
-				tTrackSector nextTs = { sectorBuffer[0], sectorBuffer[1] };
+				tTrackSector nextTs = { sectorBuffer->getByte(0), sectorBuffer->getByte(1)};
 				if (nextTs == ts)
 					break;
 				ts = std::move(nextTs);
@@ -164,11 +163,12 @@ namespace firy {
 			auto block = sectorRead({ 18,0 });
 
 			mDosVersion = block->getByte(2);
-			mDosType = block->getWordLE(0xA5);
+			mDosType = block->getWordBE(0xA5);
 
-			mLabel = stringRip(&block->at(0x90), 0xA0, 16);
+			mLabel = block->getString(0x90, 16, 0xA0); 
 
 			tTrackSector ts = { 1, 04 };
+			mBam.clear();
 			for (; ts.first < 35; ++ts.first) {
 				d64::sTrackBam bam;
 
@@ -176,8 +176,10 @@ namespace firy {
 				bam.m0 = block->getByte(ts.second++);
 				bam.m1 = block->getByte(ts.second++);
 				bam.m2 = block->getByte(ts.second++);
+				mBam.push_back(bam);
 			}
 
+			// Do we recognise the disk DOS type
 			switch (mDosType) {
 				case '2A':	// CBM DOS v2.6
 				case '2P':	// PrologicDOS, ProSpeed 
@@ -194,24 +196,24 @@ namespace firy {
 		/**
 		 *
 		 */
-		d64::spFile cD64::filesystemEntryProcess(const uint8_t* pBuffer) {
+		d64::spFile cD64::filesystemEntryProcess(spBuffer pBuffer, size_t pOffset) {
 			d64::spFile file = std::make_shared<d64::sFile>(weak_from_this());
 
 			// Get the filetype
-			file->mType = (d64::eFileType)(pBuffer[0x02] & 0x0F);
+			file->mType = (d64::eFileType)(pBuffer->getByte(pOffset + 2) & 0x0F);
 
 			// Get the filename
-			file->mName = stringRip(pBuffer + 0x05, 0xA0, 16);
+			file->mName = pBuffer->getString(pOffset + 0x05, 16, 0xA0);
 			if (file->mName.size() == 0) {
 				return 0;
 			}
 
 			// Get the starting Track/Sector
-			file->mChain.emplace_back(pBuffer[0x03], pBuffer[0x04]);
+			file->mChain.emplace_back( pBuffer->getByte(pOffset + 3), pBuffer->getByte(pOffset + 4));
 
 			// Total number of blocks
-			file->mSizeInSectors = readLEWord(&pBuffer[0x1E]);
-			file->mSizeInBytes = readLEWord(&pBuffer[0x1E]) * (sectorSize() - 2);
+			file->mSizeInSectors = pBuffer->getWordLE(pOffset + 0x1E);
+			file->mSizeInBytes = file->mSizeInSectors * (sectorSize() - 2);
 
 			return file;
 		}

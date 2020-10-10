@@ -51,6 +51,7 @@ int main()
 {
 	
 	auto aa = firy::gFiry->openImage("Robs_Workbench2.0.adf");
+	auto nn = firy::gFiry->openImage("test.d64");
 
 
 	return 0;

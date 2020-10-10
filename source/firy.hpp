@@ -95,12 +95,13 @@ namespace firy {
 		cFiry();
 
 		spSource openLocalFile(const std::string& pFilename);
-
-		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, const bool pIgnoreValid = false);
-
 		spImage openImage(const std::string& pFilename);
+		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, const bool pIgnoreValid = false);
 
 	};
 
+	/**
+	 * Global Firy pointer
+	 */
 	extern std::shared_ptr<cFiry> gFiry;
 }

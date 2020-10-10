@@ -60,7 +60,7 @@ namespace firy {
 
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
-			virtual d64::spFile filesystemEntryProcess(const uint8_t* pBuffer);
+			virtual d64::spFile filesystemEntryProcess(spBuffer pBuffer, size_t pOffset);
 			virtual bool filesystemBitmapLoad();
 
 		private:
