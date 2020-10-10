@@ -123,31 +123,31 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\source\access\blocks.hpp" />
+    <ClInclude Include="..\..\source\access\access.hpp" />
+    <ClInclude Include="..\..\source\access\tracks.hpp" />
     <ClInclude Include="..\..\source\filesystem\directory.hpp" />
     <ClInclude Include="..\..\source\filesystem\file.hpp" />
-    <ClInclude Include="..\..\source\filesystem\interface.hpp" />
+    <ClInclude Include="..\..\source\filesystem\filesystem.hpp" />
     <ClInclude Include="..\..\source\filesystem\node.hpp" />
     <ClInclude Include="..\..\source\firy.hpp" />
     <ClInclude Include="..\..\source\images\adf.hpp" />
     <ClInclude Include="..\..\source\images\d64.hpp" />
-    <ClInclude Include="..\..\source\images\disk.hpp" />
+    <ClInclude Include="..\..\source\images\image.hpp" />
     <ClInclude Include="..\..\source\images\fat.hpp" />
-    <ClInclude Include="..\..\source\interfaces\blocks.hpp" />
-    <ClInclude Include="..\..\source\interfaces\isource.hpp" />
-    <ClInclude Include="..\..\source\interfaces\tracks.hpp" />
     <ClInclude Include="..\..\source\resources.hpp" />
     <ClInclude Include="..\..\source\sources\file.hpp" />
     <ClInclude Include="..\..\source\sources\source.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\filesystem\interface.cpp" />
+    <ClCompile Include="..\..\source\access\blocks.cpp" />
+    <ClCompile Include="..\..\source\access\tracks.cpp" />
+    <ClCompile Include="..\..\source\filesystem\filesystem.cpp" />
     <ClCompile Include="..\..\source\firy.cpp" />
     <ClCompile Include="..\..\source\images\adf.cpp" />
     <ClCompile Include="..\..\source\images\d64.cpp" />
-    <ClCompile Include="..\..\source\images\disk.cpp" />
+    <ClCompile Include="..\..\source\images\image.cpp" />
     <ClCompile Include="..\..\source\images\fat.cpp" />
-    <ClCompile Include="..\..\source\interfaces\blocks.cpp" />
-    <ClCompile Include="..\..\source\interfaces\tracks.cpp" />
     <ClCompile Include="..\..\source\resources.cpp" />
     <ClCompile Include="..\..\source\sources\file.cpp" />
     <ClCompile Include="..\..\source\sources\source.cpp" />

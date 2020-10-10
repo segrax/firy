@@ -1,13 +1,14 @@
 namespace firy {
 
-	typedef size_t tBlock;
+	namespace access {
 
-	namespace interfaces {
-
-		class cSource {
+		/**
+		 * Provide function helpers to an underlying source
+		 */
+		class cInterface {
 
 		public:
-			cSource(spSource pSource) {
+			cInterface(spSource pSource) {
 				mSource = pSource;
 			}
 
@@ -22,8 +23,8 @@ namespace firy {
 			/**
 			 * Load a specific object from an offset in the source
 			 */
-			template <class tBlockType> std::shared_ptr<tBlockType> sourceObjectGet(const size_t pOffset = 0) {
-				return mSource->sourceObjectGet<tBlockType>(pOffset);
+			template <class tBlockType> std::shared_ptr<tBlockType> objectGet(const size_t pOffset = 0) {
+				return mSource->objectGet<tBlockType>(pOffset);
 			}
 
 			/**
@@ -37,15 +38,15 @@ namespace firy {
 			 * Get a chunk from the source (based on mSourceChunkSize)
 			 */
 			spBuffer sourceBufferChunk(const size_t pOffset = 0) {
-				return mSource->bufferChunk(pOffset);
+				return mSource->chunk(pOffset);
 			}
 
 			/**
 			 * Get a pointer to the chunk buffer
 			 * NOTE: This function is not safe, it will not cross the source chunk boundary
 			 */
-			uint8_t* sourceBufferPtr(const size_t pOffset = 0) {
-				return mSource->sourceBufferPtr(pOffset);
+			uint8_t* chunkPtr(const size_t pOffset = 0) {
+				return mSource->chunkPtr(pOffset);
 			}
 
 		protected:

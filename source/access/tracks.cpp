@@ -1,12 +1,12 @@
 #include "firy.hpp"
 
 namespace firy {
-	namespace interfaces {
+	namespace access {
 
 		/**
 		 * Constructor
 		 */
-		cTracks::cTracks(spSource pSource) : cSource(pSource) {
+		cTracks::cTracks() {
 			mTrackCount = 0;
 		}
 

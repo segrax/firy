@@ -20,13 +20,13 @@ namespace firy {
 		/**
 		 * D64 Constructor
 		 */
-		cD64::cD64(spSource pSource) : cDisk<interfaces::cTracks>(pSource) {
+		cD64::cD64(spSource pSource) : cImageAccess<access::cTracks>(), access::cInterface(pSource) {
 
 			mTrackCount = 35;
 		}
 
 		std::string cD64::filesystemNameGet() {
-			uint8_t* sectorptr = sourceBufferPtr(sectorOffset(tTrackSector{ 18,1 }));
+			uint8_t* sectorptr = chunkPtr(sectorOffset(tTrackSector{ 18,1 }));
 
 			return stringRip(sectorptr + 0x90, 0xA0, 16);
 		}
@@ -44,7 +44,7 @@ namespace firy {
 			while (	(ts.first > 0 && ts.first <= trackCount()) && 
 					(ts.second <= sectorCount(ts.first))) {
 
-				auto sectorBuffer = sourceBufferPtr(sectorOffset(ts));
+				auto sectorBuffer = chunkPtr(sectorOffset(ts));
 				auto buffer = sectorBuffer;
 				if (!buffer)
 					break;
@@ -85,7 +85,7 @@ namespace firy {
 			for (auto& ts : File->mChain) {
 				bool noCopy = false;
 
-				uint8_t* sectorptr = sourceBufferPtr(sectorOffset(ts));
+				uint8_t* sectorptr = chunkPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					File->mChainBroken = true;
 					return buffer;
@@ -115,14 +115,23 @@ namespace firy {
 			return buffer;
 		}
 
+		/**
+		 * Calculate number of sectors for this track
+		 */
 		tSector cD64::sectorCount(const tTrack pTrack) const {
-			return (21 - (pTrack > 17) * 2 - (pTrack > 24) - (pTrack > 30));
+			return ((21 - (pTrack > 17) * 2) - (pTrack > 24) - (pTrack > 30));
 		}
 		
+		/**
+		 * Fixed sector size
+		 */
 		size_t cD64::sectorSize(const tTrack pTrack) const {
 			return 256;
 		}
 
+		/**
+		 * Load the T/S chain for a file
+		 */
 		bool cD64::filesystemChainLoad(spFile pFile) {
 			tTrackSector ts = pFile->mChain[0];
 			pFile->mChain.clear();
@@ -137,7 +146,7 @@ namespace firy {
 				//} else
 				//	mBamRealTracks[currentTrack][currentSector] = pFile;
 
-				uint8_t* sectorptr = sourceBufferPtr(sectorOffset(ts));
+				uint8_t* sectorptr = chunkPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					pFile->mChainBroken = true;
 					return false;
@@ -153,6 +162,9 @@ namespace firy {
 			return false;
 		}
 
+		/**
+		 *
+		 */
 		spD64File cD64::filesystemEntryProcess(const uint8_t* pBuffer) {
 			spD64File file = std::make_shared<sD64File>( weak_from_this() );
 

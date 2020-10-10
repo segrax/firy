@@ -2,14 +2,14 @@ namespace firy {
 
 	typedef size_t tBlock;
 
-	namespace interfaces {
+	namespace access {
 
 		/**
 		 * Provide a block read/write interface
 		 */
-		class cBlocks : public interfaces::cSource {
+		class cBlocks : public virtual access::cInterface {
 		public:
-			cBlocks(spSource pSource);
+			cBlocks();
 
 			virtual spBuffer blockRead(const tBlock pBlock);
 
@@ -39,7 +39,7 @@ namespace firy {
 			 * Load an object from a block
 			 */
 			template <class tBlockType> std::shared_ptr<tBlockType> blockObjectGet(const size_t pBlock) {
-				return sourceObjectGet<tBlockType>(pBlock * blockSize());
+				return objectGet<tBlockType>(pBlock * blockSize());
 			}
 
 		protected:

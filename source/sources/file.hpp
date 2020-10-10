@@ -5,7 +5,7 @@ namespace firy {
 		/**
 		 * Access a file
 		 */
-		class cFile : public cSource {
+		class cFile : public cInterface {
 		public:
 
 			cFile(size_t pChunkSize = gMegabyte);
@@ -13,24 +13,17 @@ namespace firy {
 			virtual bool open(const std::string pFile);
 			virtual void close();
 
-			virtual spBuffer bufferCopy(const size_t pOffset = 0, const size_t pSize = 0);
-
-
-			virtual spBuffer bufferChunk(const size_t pFileOffset = 0);
+			virtual spBuffer chunk(const size_t pFileOffset = 0);
 
 
 		private:
-			std::string mSourceFilename;					// Path/Name of image file
+			std::string mFilename;					// Path/Name of image file
 		};
 
 		/**
 		 * File shared pointer
 		 */
-		typedef std::shared_ptr<cFile> spSourceFile;
+		typedef std::shared_ptr<cInterface> spSourceFile;
 
-		/**
-		 * Open a file
-		 */
-		spSourceFile OpenFile(const std::string& pFile);
 	}
 }

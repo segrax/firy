@@ -1,9 +1,9 @@
 #include "firy.hpp"
 
 namespace firy {
-	namespace interfaces {
+	namespace access {
 
-		cBlocks::cBlocks(spSource pSource) : cSource(pSource) {
+		cBlocks::cBlocks() {
 			mBlockCount = 0;
 			mBlockSize = 0;
 		}

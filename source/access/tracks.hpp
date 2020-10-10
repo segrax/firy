@@ -5,18 +5,18 @@ namespace firy {
 
 	typedef std::pair<tTrack, tSector> tTrackSector;
 
-	namespace interfaces {
+	namespace access {
 
 		/**
 		 * Provide a track/sector read/write interface
 		 */
-		class cTracks : public interfaces::cSource {
+		class cTracks : public virtual access::cInterface {
 		public:
 
 			/**
 			 * Constructor
 			 */
-			cTracks(spSource pSource);
+			cTracks();
 
 			/**
 			 * Read the provided track
@@ -57,7 +57,6 @@ namespace firy {
 			 * Number of bytes per sector
 			 */
 			virtual size_t sectorSize(const tTrack pTrack = 0) const = 0;
-			virtual size_t blockSize(const tTrack pTrack = 0) const { return sectorSize(pTrack); };
 
 		protected:
 

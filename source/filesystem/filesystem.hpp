@@ -1,4 +1,5 @@
 namespace firy {
+
 	namespace filesystem {
 		struct sNode;
 		struct sFile;
@@ -34,8 +35,8 @@ namespace firy {
 			spDirectory mFsRoot;
 			std::string mFsPathSeperator;
 		};
-
 	}
+
 	typedef std::shared_ptr<filesystem::cInterface> spFilesystem;
-	typedef std::weak_ptr<filesystem::cInterface> wpFilesystem;
+	typedef std::weak_ptr<filesystem::cInterface>	wpFilesystem;
 }

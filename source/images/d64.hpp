@@ -25,7 +25,7 @@ namespace firy {
 		/**
 		 * Commodore 64: Disk Image (D64)
 		 */
-		class cD64 : public cDisk<interfaces::cTracks> {
+		class cD64 : public cImageAccess<access::cTracks> {
 
 		public:
 			cD64(spSource pSource);

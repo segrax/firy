@@ -2,6 +2,9 @@ namespace firy {
 	namespace images {
 		namespace fat {
 
+			/**
+			 * Supported FAT revisions
+			 */
 			enum eType {
 				FAT12,
 				FAT16,
@@ -9,75 +12,80 @@ namespace firy {
 			};
 
 #pragma pack(1)
+			/**
+			 * On disk: Partition Table
+			 */
 			struct sParitionTableEntry {
-				uint8_t  boot;				// 0x80: Active/boot partition
-				uint8_t  beginHead;
-				unsigned char beginSector : 6;
-				unsigned char beginCylinderHigh : 2;
-				uint8_t  beginCylinderLow;
+				uint8_t  mActive;				// 0x80: Active/mActive partition
+				uint8_t  mStartHead;
+				unsigned char mStartSector: 6;
+				unsigned char mStartCylinderHigh : 2;
+				uint8_t  mStartCylinderLow;
 
-				uint8_t  type;
+				uint8_t  mType;
 
-				uint8_t  endHead;
-				unsigned char endSector : 6;
-				unsigned char endCylinderHigh : 2;
-				uint8_t  endCylinderLow;
+				uint8_t  mEndHead;
+				unsigned char mEndSector : 6;
+				unsigned char mEndCylinderLowHigh : 2;
+				uint8_t  mEndCylinderLow;
 
-				uint32_t firstSector;		// LBA of first block of partition
-				uint32_t totalSectors;		// Total blocks
+				uint32_t mStartLBA;		// LBA of first block of partition
+				uint32_t mTotalSectors;		// Total blocks
 			};
 
 			/*
-				BIOS Parameter Block structure (FAT12/16)
-			*/
+			 *	BIOS Parameter Block structure (FAT12/16)
+			 */
 			struct sBiosParam {
-				uint16_t bytepersec;		// bytes per sector (0x00)
-				uint8_t	secperclus;			// sectors per cluster (1,2,4,8,16,32,64,128 are valid)
-				uint16_t reserved;			// reserved sectors
-				uint8_t numfats;			// number of FAT copies (2)
-				uint16_t rootentries;		// number of root dir entries (0x00 normally)
-				uint16_t sectors_s;			// small num sectors
-				uint8_t mediatype;			// media descriptor byte
-				uint16_t secperfat;			// sectors per FAT 
-				uint16_t secpertrk;			// sectors per track
-				uint16_t heads;				// heads
-				uint32_t hidden;			// hidden sectors
-				uint32_t sectors_l;			// large num sectors
+				uint16_t mBytesPerSector;		// bytes per sector
+				uint8_t  mSectorsPerCluster;	// (1,2,4,8,16,32,64,128 are valid)
+				uint16_t mSectorsReserved;		// Total of reserved sectors
+				uint8_t  mFatCount;				// Count of the number of FAT tables
+				uint16_t mRootEntryCount;		// Count of entries in root directory
+				uint16_t mSectorsTotal;			// small num sectors
+				uint8_t  mMediaType;			// media descriptor byte
+				uint16_t mSectorsPerFAT;		// sectors per FAT 
+				uint16_t mSectorsPerTrack;		// sectors per track
+				uint16_t mHeads;				// disk heads
+				uint32_t mSectorsHidden;		// hidden sectors
+				uint32_t mSectorsTotal_H;		// FAT32 Sectors Total
 			};
 
 			/*
-				Extended BIOS Parameter Block structure (FAT12/16)
-			*/
+			 *	Extended BIOS Parameter Block structure (FAT12/16)
+			 */
 			struct sBiosExParam {
-				uint8_t unit;				// int 13h drive#
-				uint8_t head;				// archaic, used by Windows NT-class OSes for flags
-				uint8_t signature;			// 0x28 or 0x29
-				uint32_t serial;			// serial#
-				uint8_t label[11];			// volume label
-				uint8_t system[8];			// filesystem ID
+				uint8_t  mUnit;				// int 13h drive#
+				uint8_t  mHead;				// 
+				uint8_t  mSignature;			// 0x28 or 0x29
+				uint32_t mSerial;			// serial#
+				uint8_t  mLabel[11];			// volume label
+				uint8_t  mFilesystemID[8];	// 
 			};
 
 			/*
-				Extended BIOS Parameter Block structure (FAT32)
-			*/
+			 *	Extended BIOS Parameter Block structure (FAT32)
+			 */
 			struct sBiosExParam32 {
-				uint32_t fatsize;			// big FAT size in sectors
-				uint16_t extflags;			// extended flags
-				uint16_t fsver;				// filesystem version (0x00)
-				uint32_t root;				// cluster of root dir
-				uint16_t fsinfo;			// sector pointer to FSINFO within reserved area
-				uint16_t bkboot;			// sector pointer to backup boot sector within reserved area
-				uint8_t reserved[12];		// reserved, should be 0
+				uint32_t mFatTotalSectors;		// big FAT size in sectors
+				uint16_t mExtendedFlags;		// extended flags
+				uint16_t mFilesystemVersion;	// filesystem version (0x00)
+				uint32_t mRootCluster;			// cluster of root dir
+				uint16_t mFilesystemInfoSector;	// sector pointer to FSINFO within reserved area
+				uint16_t mBackupBootSector;		// sector pointer to backup mActive sector within reserved area
+				uint8_t  mReserved[12];			// reserved, should be 0
 
-				uint8_t unit;				// int 13h drive#
-				uint8_t head;				// archaic, used by Windows NT-class OSes for flags
-				uint8_t signature;			// 0x28 or 0x29
-				uint32_t serial;			// serial#
-				uint8_t label[11];			// volume label
-				uint8_t system[8];			// filesystem ID
+				uint8_t  mUnit;					// int 13h drive#
+				uint8_t  mHead;					// archaic, used by Windows NT-class OSes for flags
+				uint8_t  mSignature;			// 0x28 or 0x29
+				uint32_t mSerial;				// serial#
+				uint8_t  mLabel[11];			// volume label
+				uint8_t  mFilesystemID[8];		// filesystem ID
 			};
 
-
+			/**
+			 * Boot Record
+			 */
 			struct sBootRecordBlock {
 				uint8_t mJmpBoot[3];
 				uint8_t mOEMName[8];
@@ -88,23 +96,23 @@ namespace firy {
 				};
 
 				union {
-					uint8_t code1[420];
+					uint8_t mBootCode1[420];
 
 					struct {
-						uint8_t code2[356];
-						sParitionTableEntry parts[4];	// 0x88
-					} mbr;
+						uint8_t mBootCode2[356];
+						sParitionTableEntry mPartitions[4];	// 0x88
+					} mMasterBootRecord;
 				};
 
-				uint8_t sig_55;		
-				uint8_t sig_aa;	
+				uint8_t mSignature1;		
+				uint8_t mSignature2;	
 			};
 
 			struct sFileAttribute {
 				uint8_t read_only : 1;
 				uint8_t hidden : 1;
-				uint8_t system : 1;
-				uint8_t label : 1;
+				uint8_t mFilesystemID : 1;
+				uint8_t mLabel : 1;
 				uint8_t directory : 1;
 				uint8_t archive : 1;
 				uint8_t __res : 2;
@@ -158,7 +166,7 @@ namespace firy {
 		/**
 		 * MS-DOS: FAT
 		 */
-		class cFAT : public cDisk<interfaces::cBlocks> {
+		class cFAT : public cImageAccess<access::cBlocks> {
 
 		public:
 			cFAT(spSource pSource);

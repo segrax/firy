@@ -19,16 +19,16 @@ namespace firy {
 #include "sources/source.hpp"
 #include "sources/file.hpp"
 
-#include "interfaces/isource.hpp"
-#include "interfaces/blocks.hpp"
-#include "interfaces/tracks.hpp"
+#include "access/access.hpp"
+#include "access/blocks.hpp"
+#include "access/tracks.hpp"
 
-#include "filesystem/interface.hpp"
+#include "filesystem/filesystem.hpp"
 #include "filesystem/node.hpp"
 #include "filesystem/file.hpp"
 #include "filesystem/directory.hpp"
 
-#include "images/disk.hpp"
+#include "images/image.hpp"
 
 namespace firy {
 
@@ -96,6 +96,9 @@ namespace firy {
 	class cFiry {
 	public:
 		cFiry();
+
+		spSource openFile(const std::string pFilename);
+
 	};
 
 	extern std::shared_ptr<cFiry> gFiry;

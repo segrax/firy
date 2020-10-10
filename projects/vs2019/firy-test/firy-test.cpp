@@ -9,7 +9,7 @@
 #include <sstream>
 #include <iomanip>
 
-bool DumpBlocksFree(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std::string& pBaseFileName) {
+bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::string& pBaseFileName) {
 
 	for (auto& block : pDisk->blocksFree()) {
 		auto data = pDisk->blockRead(block);
@@ -42,7 +42,7 @@ bool DumpBlocksFree(std::shared_ptr<firy::interfaces::cBlocks> pDisk, const std:
 
 template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
 
-	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::sources::OpenFile(pImage));
+	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::gFiry->openFile(pImage));
 	img->filesystemPrepare();
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
@@ -50,7 +50,7 @@ template <class tImage> void DumpImageBlocksFree(const std::string& pImage, cons
 int main()
 {
 	
-	auto D64 = std::make_shared<firy::images::cD64>( firy::sources::OpenFile("test.d64") );
+	auto D64 = std::make_shared<firy::images::cD64>( firy::gFiry->openFile("test.d64") );
 
 	D64->filesystemPrepare();
 	auto test = D64->filesystemFile("CREEP");
@@ -66,7 +66,7 @@ int main()
 
 
 	{
-		std::shared_ptr<firy::images::cADF> ADF = std::make_shared<firy::images::cADF>(firy::sources::OpenFile("Robs_Workbench2.0.adf"));
+		auto ADF = std::make_shared<firy::images::cADF>(firy::gFiry->openFile("Robs_Workbench2.0.adf"));
 		ADF->filesystemPrepare();
 		auto path = ADF->filesystemPath("/");
 
@@ -88,7 +88,7 @@ int main()
 	}
 
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
+		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -101,7 +101,7 @@ int main()
 		auto data = file->read();
 	}
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("EA_Engine_Assy.img"));
+		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("EA_Engine_Assy.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 
@@ -130,8 +130,7 @@ int main()
 
 
 	{
-		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::sources::OpenFile("Win98.img"));
-		//FAT->sourceOpen("testmbr.img");
+		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openFile("Win98.img"));
 		FAT->filesystemPrepare();
 		auto path = FAT->filesystemPath("/");
 

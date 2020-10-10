@@ -75,13 +75,13 @@ namespace firy {
 				*
 				* magic :-) endian swap function (big -> little for read, little to big for write)
 				*/
-			void swapEndian(uint8_t* buf, int type) {
+			void swapEndian(uint8_t* buf, int mType) {
 				int i = 0, j = 0;
 				int p = 0;
 
-				while (swapTable[type][i] != 0) {
-					for (j = 0; j < swapTable[type][i]; j++) {
-						switch (swapTable[type][i + 1]) {
+				while (swapTable[mType][i] != 0) {
+					for (j = 0; j < swapTable[mType][i]; j++) {
+						switch (swapTable[mType][i + 1]) {
 						case SW_LONG:
 							
 							*(uint32_t*)(buf + p) = readBEDWord(buf + p);
@@ -101,7 +101,7 @@ namespace firy {
 					i += 2;
 				}
 
-				if (p != swapTable[type][i + 1])
+				if (p != swapTable[mType][i + 1])
 					printf("Warning: Endian Swapping length");		/* BV */
 			}
 		}
@@ -119,7 +119,7 @@ namespace firy {
 
 		}
 		
-		cADF::cADF(spSource pSource) : cDisk<interfaces::cBlocks>(pSource) {
+		cADF::cADF(spSource pSource) : cImageAccess<access::cBlocks>(), access::cInterface(pSource) {
 			mBlockSize = gBytesPerBlock;
 
 			mBlockFirst = 0;
@@ -305,7 +305,7 @@ namespace firy {
 					if (!blockFile->dataBlocks[index])
 						break;
 
-					auto block = sourceBufferPtr(blockFile->dataBlocks[index] * blockSize());
+					auto block = chunkPtr(blockFile->dataBlocks[index] * blockSize());
 					auto size = min(totalbytes, blockSize());
 					memcpy(destptr, block, size);
 					destptr += size;
@@ -324,7 +324,7 @@ namespace firy {
 						if (!blockExt->dataBlocks[index])
 							break;
 
-						auto block = sourceBufferPtr(blockExt->dataBlocks[index] * blockSize());
+						auto block = chunkPtr(blockExt->dataBlocks[index] * blockSize());
 						auto size = min(totalbytes, blockSize());
 						memcpy(destptr, block, size);
 						destptr += size;

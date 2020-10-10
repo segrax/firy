@@ -33,7 +33,7 @@ namespace firy {
 
 
 			struct sRootBlock {
-				/*000*/	int32_t	type;
+				/*000*/	int32_t	mType;
 				int32_t	headerKey;
 				int32_t	highSeq;
 				/*00c*/	int32_t	hashTableSize;
@@ -62,7 +62,7 @@ namespace firy {
 			};
 
 			struct sEntryBlock {
-				/*000*/	int32_t	type;		/* T_HEADER == 2 */
+				/*000*/	int32_t	mType;		/* T_HEADER == 2 */
 				/*004*/	int32_t	headerKey;	/* current block number */
 				int32_t	r1[3];
 				/*014*/	uint32_t	checkSum;
@@ -89,7 +89,7 @@ namespace firy {
 			};
 
 			struct sFileHeaderBlock {
-				/*000*/	int32_t	type;		/* == 2 */
+				/*000*/	int32_t	mType;		/* == 2 */
 				/*004*/	int32_t	headerKey;	/* current block number */
 				/*008*/	int32_t	highSeq;	/* number of data block in this hdr block */
 				/*00c*/	int32_t	dataSize;	/* == 0 */
@@ -119,7 +119,7 @@ namespace firy {
 			};
 
 			struct sFileExtBlock {
-				/*000*/	int32_t	type;		/* == 0x10 */
+				/*000*/	int32_t	mType;		/* == 0x10 */
 				/*004*/	int32_t	headerKey;
 				/*008*/	int32_t	highSeq;
 				/*00c*/	int32_t	dataSize;	/* == 0 */
@@ -135,7 +135,7 @@ namespace firy {
 			};
 
 			struct sOFSDataBlock {
-				/*000*/	int32_t	type;		/* == 8 */
+				/*000*/	int32_t	mType;		/* == 8 */
 				/*004*/	int32_t	headerKey;	/* pointer to file_hdr block */
 				/*008*/	int32_t	seqNum;	/* file data block number */
 				/*00c*/	int32_t	dataSize;	/* <= 0x1e8 */
@@ -198,7 +198,7 @@ namespace firy {
 		/**
 		 * Amiga: Disk Image (adf)
 		 */
-		class cADF : public cDisk<interfaces::cBlocks> {
+		class cADF : public cImageAccess<access::cBlocks> {
 
 		public:
 			cADF(spSource pSource);
