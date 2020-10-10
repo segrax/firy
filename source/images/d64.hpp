@@ -48,7 +48,7 @@ namespace firy {
 			virtual spBuffer filesystemRead(spNode pFile);
 
 			virtual std::string imageType() const {
-				return "Commodore 64 Disk";
+				return "Commodore 64 Disk Image (D64)";
 			}
 
 			virtual std::vector<std::string> imageExtensions() const {

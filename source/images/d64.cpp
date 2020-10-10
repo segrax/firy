@@ -117,22 +117,22 @@ namespace firy {
 		}
 
 		/**
-			* Calculate number of sectors for this track
-			*/
+		 * Calculate number of sectors for this track
+		 */
 		tSector cD64::sectorCount(const tTrack pTrack) const {
 			return ((21 - (pTrack > 17) * 2) - (pTrack > 24) - (pTrack > 30));
 		}
 
 		/**
-			* Fixed sector size
-			*/
+		 * Fixed sector size
+		 */
 		size_t cD64::sectorSize(const tTrack pTrack) const {
 			return 256;
 		}
 
 		/**
-			* Load the T/S chain for a file
-			*/
+		 * Load the T/S chain for a file
+		 */
 		bool cD64::filesystemChainLoad(spFile pFile) {
 			tTrackSector ts = pFile->mChain[0];
 			pFile->mChain.clear();
@@ -159,6 +159,9 @@ namespace firy {
 			return true;
 		}
 
+		/**
+		 * Load the bitmap availability block
+		 */
 		bool cD64::filesystemBitmapLoad() {
 			auto block = sectorRead({ 18,0 });
 
@@ -167,7 +170,8 @@ namespace firy {
 
 			mLabel = block->getString(0x90, 16, 0xA0); 
 
-			tTrackSector ts = { 1, 04 };
+			// Load the BAM (We are abusing the sector field to hold the byte offset
+			tTrackSector ts = { 1, 4 };
 			mBam.clear();
 			for (; ts.first < 35; ++ts.first) {
 				d64::sTrackBam bam;
@@ -181,13 +185,12 @@ namespace firy {
 
 			// Do we recognise the disk DOS type
 			switch (mDosType) {
+				default:	// Unknown DOS
+					break;
+
 				case '2A':	// CBM DOS v2.6
 				case '2P':	// PrologicDOS, ProSpeed 
 					return true;
-
-				default:
-					// 
-					break;
 			}
 
 			return false;

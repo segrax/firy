@@ -216,7 +216,7 @@ namespace firy {
 			adf::eType diskType() const;
 
 			virtual std::string imageType() const {
-				return "Amiga Disk Format";
+				return "Amiga Disk Format (adf)";
 			}
 
 			virtual std::vector<std::string> imageExtensions() const {

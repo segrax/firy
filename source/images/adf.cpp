@@ -4,13 +4,11 @@
 namespace firy {
 	namespace images {
 
-		using namespace adf;
-
 		namespace adf {
 
-			#define SW_LONG  4
-			#define SW_SHORT 2
-			#define SW_CHAR  1
+#define SW_LONG  4
+#define SW_SHORT 2
+#define SW_CHAR  1
 
 			int swapTable[][15] = {
 				{ 4, SW_CHAR, 2, SW_LONG, 1012, SW_CHAR, 0, 1024 },     /* first bytes of boot */
@@ -83,7 +81,7 @@ namespace firy {
 					for (j = 0; j < swapTable[mType][i]; j++) {
 						switch (swapTable[mType][i + 1]) {
 						case SW_LONG:
-							
+
 							*(uint32_t*)(buf + p) = readBEDWord(buf + p);
 							p += 4;
 							break;
@@ -104,23 +102,24 @@ namespace firy {
 				if (p != swapTable[mType][i + 1])
 					printf("Warning: Endian Swapping length");		/* BV */
 			}
+
+
+			/**
+			 * Maximum number of bytes which can be stored in a block
+			 */
+			const size_t gBytesPerBlock = 512;
+
+			sADFFile::sADFFile(wpFilesystem pFilesystem) : sEntry(), sFile(pFilesystem) {
+
+			}
+
+			sADFDir::sADFDir(wpFilesystem pFilesystem) : sEntry(), sDirectory(pFilesystem) {
+
+			}
 		}
 
-		/**
-		 * Maximum number of bytes which can be stored in a block
-		 */
-		const size_t gBytesPerBlock = 512;
-
-		sADFFile::sADFFile(wpFilesystem pFilesystem) : sEntry(), sFile(pFilesystem) {
-
-		}
-
-		sADFDir::sADFDir(wpFilesystem pFilesystem) : sEntry(), sDirectory(pFilesystem) {
-
-		}
-		
 		cADF::cADF(spSource pSource) : cImageAccess<access::cBlocks>(), access::cInterface(pSource) {
-			mBlockSize = gBytesPerBlock;
+			mBlockSize = adf::gBytesPerBlock;
 
 			mBlockFirst = 0;
 			mBlockLast = 0;
@@ -167,7 +166,7 @@ namespace firy {
 			if (!filesystemBitmapLoad())
 				return false;
 
-			auto Root = std::make_shared<sADFDir>(weak_from_this());
+			auto Root = std::make_shared<adf::sADFDir>(weak_from_this());
 			Root->mBlock = mBlockRoot;
 
 			mFsRoot = Root;
@@ -177,7 +176,7 @@ namespace firy {
 		/**
 		 * Load the contents of a directory
 		 */
-		bool cADF::entrysLoad(spADFDir pDir) {
+		bool cADF::entrysLoad(adf::spADFDir pDir) {
 			auto block = blockLoad<adf::sEntryBlock>(pDir->mBlock);
 			if (!block)
 				return false;
@@ -192,7 +191,7 @@ namespace firy {
 					pDir->mNodes.push_back(entry);
 
 					// Load any further files with a matching hash
-					tBlock nextSector = std::dynamic_pointer_cast<sEntry>(entry)->mNextSameHash;
+					tBlock nextSector = std::dynamic_pointer_cast<adf::sEntry>(entry)->mNextSameHash;
 					while (nextSector) {
 						auto entry = entryLoad(nextSector);
 						if (!entry) {
@@ -201,7 +200,7 @@ namespace firy {
 						}
 
 						pDir->mNodes.push_back(entry);
-						nextSector = std::dynamic_pointer_cast<sEntry>(entry)->mNextSameHash;
+						nextSector = std::dynamic_pointer_cast<adf::sEntry>(entry)->mNextSameHash;
 					}
 				}
 			}
@@ -219,14 +218,14 @@ namespace firy {
 			}
 
 			spNode node;
-			sEntry* entry = 0;
+			adf::sEntry* entry = 0;
 
 			switch (blockEntry->secType) {
 			case 1:		// ST_ROOT
 				return 0;
 			case 2: 	// ST_DIR
 			case 4:	{	// ST_LDIR
-				auto Dir = std::make_shared<sADFDir>(weak_from_this());
+				auto Dir = std::make_shared<adf::sADFDir>(weak_from_this());
 				node = Dir;
 				entry = Dir.operator->();
 				entry->mReal = blockEntry->realEntry;
@@ -236,7 +235,7 @@ namespace firy {
 			case 3:		// ST_LSOFT
 			case -3: 	// ST_FILE
 			case -4: {	// ST_LFILE
-				auto File = std::make_shared<sADFFile>(weak_from_this());
+				auto File = std::make_shared<adf::sADFFile>(weak_from_this());
 				node = File;
 				entry = File.operator->();
 				entry->mReal = blockEntry->realEntry;
@@ -251,9 +250,9 @@ namespace firy {
 			entry->mType = blockEntry->secType;
 			entry->mParent = blockEntry->parent;
 
-			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, MAXNAMELEN));
+			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, adf::MAXNAMELEN));
 
-			adfDays2Date(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
+			adf::adfDays2Date(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
 			entry->hour = blockEntry->mins / 60;
 			entry->mins = blockEntry->mins % 60;
 			entry->secs = blockEntry->ticks / 50;
@@ -262,17 +261,17 @@ namespace firy {
 			entry->mNextSameHash = blockEntry->nextSameHash;
 
 			if(blockEntry->secType == 2)
-				entrysLoad(std::dynamic_pointer_cast<sADFDir>(node));
+				entrysLoad(std::dynamic_pointer_cast<adf::sADFDir>(node));
 
 			return node;
 		}
 
 		spBuffer cADF::filesystemRead(spNode pFile) {
-			spADFFile File = std::dynamic_pointer_cast<sADFFile>(pFile);
+			adf::spADFFile File = std::dynamic_pointer_cast<adf::sADFFile>(pFile);
 			if (!File)
 				return {};
 
-			auto blockFile = blockLoad< sFileHeaderBlock>(File->mBlock);
+			auto blockFile = blockLoad<adf::sFileHeaderBlock>(File->mBlock);
 			size_t totalbytes = blockFile->byteSize;
 
 			spBuffer buffer = std::make_shared<tBuffer>();
@@ -280,12 +279,12 @@ namespace firy {
 			uint8_t *destptr = buffer->data();
 
 			// Old 1.2 Filesystem
-			if (!(mBootBlock->dosType[3] & eFlags::FFS)) {
+			if (!(mBootBlock->dosType[3] & adf::eFlags::FFS)) {
 				tBlock currentblock = blockFile->firstData;
 				int count = 1;
 
 				while (currentblock) {
-					auto block = blockLoad<sOFSDataBlock>(currentblock);
+					auto block = blockLoad<adf::sOFSDataBlock>(currentblock);
 
 					memcpy(destptr, block->data, block->dataSize);
 					destptr += block->dataSize;
@@ -301,7 +300,7 @@ namespace firy {
 				}
 
 			} else {
-				for (int index = MAX_DATABLK-1; index >= 0; --index) {
+				for (int index = adf::MAX_DATABLK-1; index >= 0; --index) {
 					if (!blockFile->dataBlocks[index])
 						break;
 
@@ -314,13 +313,13 @@ namespace firy {
 
 				tBlock nextSector = blockFile->extension;
 				while (nextSector) {
-					auto blockExt = blockLoad<sFileExtBlock>(nextSector);
+					auto blockExt = blockLoad<adf::sFileExtBlock>(nextSector);
 					if (!blockExt) {
 						// TODO: Error
 						break;
 					}
 
-					for (int index = MAX_DATABLK - 1; index >= 0; --index) {
+					for (int index = adf::MAX_DATABLK - 1; index >= 0; --index) {
 						if (!blockExt->dataBlocks[index])
 							break;
 
@@ -339,7 +338,7 @@ namespace firy {
 		}
 
 		size_t cADF::blockSize(const tBlock pBlock) const {
-			return gBytesPerBlock;
+			return adf::gBytesPerBlock;
 		}
 
 		bool cADF::blockIsFree(const tBlock pBlock) const {
@@ -370,21 +369,21 @@ namespace firy {
 		}
 
 		std::shared_ptr<adf::sOFSDataBlock> cADF::blockReadOFS(const tBlock pBlock) {
-			return blockLoad<sOFSDataBlock>(pBlock);
+			return blockLoad<adf::sOFSDataBlock>(pBlock);
 		}
 
 		adf::eType cADF::diskType() const {
 			if ((sourceSize() >= 512 * 11 * 2 * 80) &&
 				(sourceSize() <= 512 * 11 * 2 * 83))
-				return(eType::FLOPPY_DD);
+				return(adf::eType::FLOPPY_DD);
 
 			else if (sourceSize() == 512 * 22 * 2 * 80)
-				return(eType::FLOPPY_HD);
+				return(adf::eType::FLOPPY_HD);
 
 			else if (sourceSize() > 512 * 22 * 2 * 80)
-				return(eType::HARDDRIVE);
+				return(adf::eType::HARDDRIVE);
 			
-			return eType::UNKNOWN;
+			return adf::eType::UNKNOWN;
 		}
 
 		std::string cADF::filesystemNameGet() const {
@@ -401,7 +400,7 @@ namespace firy {
 
 			for (auto& page : mRootBlock->bmPages) {
 				if (page) {
-					auto block = blockLoad<sBitmapBlock>(page);
+					auto block = blockLoad<adf::sBitmapBlock>(page);
 					if (!block) {
 						std::cout << "bitmap block load error\n";
 						return false;
@@ -412,10 +411,10 @@ namespace firy {
 
 			auto blockBitmapExt = mRootBlock->bmExt;
 			while (blockBitmapExt) {
-				auto blockExt = blockLoadNoCheck<sBitmapExtBlock>(blockBitmapExt);
+				auto blockExt = blockLoadNoCheck<adf::sBitmapExtBlock>(blockBitmapExt);
 				for(auto& page : blockExt->bmPages) {
 					if (page) {
-						auto block = blockLoad<sBitmapBlock>(page);
+						auto block = blockLoad<adf::sBitmapBlock>(page);
 						if (!block) {
 							std::cout << "bitmap block load error\n";
 							return false;
@@ -472,28 +471,28 @@ namespace firy {
 		template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
 
 			if (typeid(tBlockType) == typeid(adf::sBootBlock))
-				swapEndian((uint8_t*)pBlock.get(), 0);
+				adf::swapEndian((uint8_t*)pBlock.get(), 0);
 
 			if (typeid(tBlockType) == typeid(adf::sRootBlock))
-				swapEndian((uint8_t*)pBlock.get(), 1);
+				adf::swapEndian((uint8_t*)pBlock.get(), 1);
 
 			if (typeid(tBlockType) == typeid(adf::sEntryBlock))
-				swapEndian((uint8_t*)pBlock.get(), 3);
+				adf::swapEndian((uint8_t*)pBlock.get(), 3);
 
 			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock))
-				swapEndian((uint8_t*)pBlock.get(), 3);
+				adf::swapEndian((uint8_t*)pBlock.get(), 3);
 
 			if (typeid(tBlockType) == typeid(adf::sOFSDataBlock))
-				swapEndian((uint8_t*)pBlock.get(), 2);
+				adf::swapEndian((uint8_t*)pBlock.get(), 2);
 
 			if (typeid(tBlockType) == typeid(adf::sFileExtBlock))
-				swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::swapEndian((uint8_t*)pBlock.get(), 5);
 
 			if (typeid(tBlockType) == typeid(adf::sBitmapBlock))
-				swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::swapEndian((uint8_t*)pBlock.get(), 5);
 
 			if (typeid(tBlockType) == typeid(adf::sBitmapExtBlock))
-				swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::swapEndian((uint8_t*)pBlock.get(), 5);
 		}
 
 		/**
@@ -517,12 +516,12 @@ namespace firy {
 				return 0;
 
 			//  Checksum is generated before endian swap
-			auto checksum = blockChecksum((const uint8_t*)block.get(), gBytesPerBlock);
+			auto checksum = blockChecksum((const uint8_t*)block.get(), blockSize());
 
 			if (typeid(tBlockType) == typeid(adf::sBootBlock)) {
 				adf::sBootBlock* blockptr = (adf::sBootBlock*)block.get();
 
-				checksum = blockBootChecksum((const uint8_t*)block.get(), gBytesPerBlock);
+				checksum = blockBootChecksum((const uint8_t*)block.get(), blockSize());
 				blockSwapEndian(block);
 
 				if (blockptr->data[0] != 0) {
@@ -534,7 +533,7 @@ namespace firy {
 				return block;
 
 			} else if (typeid(tBlockType) == typeid(adf::sBitmapBlock)) {
-				checksum = blockChecksum((const uint8_t*)block.get(), gBytesPerBlock, 0);
+				checksum = blockChecksum((const uint8_t*)block.get(), blockSize(), 0);
 			}
 
 			blockSwapEndian(block);
