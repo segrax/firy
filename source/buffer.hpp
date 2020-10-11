@@ -16,6 +16,9 @@ namespace firy {
 		void pushWord(const uint16_t pWord);
 		void pushDWord(const uint32_t pDWord);
 		void pushBuffer(std::shared_ptr<cBuffer> pBuffer);
+
+		bool operator==(const cBuffer& pBuffer);
+		bool operator!=(const cBuffer& pBuffer);
 	};
 
 	typedef cBuffer tBuffer;

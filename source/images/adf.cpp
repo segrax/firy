@@ -6,19 +6,22 @@ namespace firy {
 
 		namespace adf {
 
-#define SW_LONG  4
-#define SW_SHORT 2
-#define SW_CHAR  1
+			// Thanks to adflib for endian/time functions
+			// http://lclevy.free.fr/adflib
 
-			int swapTable[][15] = {
-				{ 4, SW_CHAR, 2, SW_LONG, 1012, SW_CHAR, 0, 1024 },     /* first bytes of boot */
-				{ 108, SW_LONG, 40, SW_CHAR, 10, SW_LONG, 0, 512 },        /* root */
-				{ 6, SW_LONG, 488, SW_CHAR, 0, 512 },                      /* data */
-																		/* file, dir, entry */
+			const int SW_LONG = 4;
+			const int SW_SHORT = 2;
+			const int SW_CHAR = 1;
+
+			int blockEndianSwapTable[][15] = {
+				{ 4, SW_CHAR, 2, SW_LONG, 1012, SW_CHAR, 0, 1024 },				/* first bytes of boot */
+				{ 108, SW_LONG, 40, SW_CHAR, 10, SW_LONG, 0, 512 },				/* root */
+				{ 6, SW_LONG, 488, SW_CHAR, 0, 512 },							/* data */
+																				/* file, dir, entry */
 				{ 82, SW_LONG, 92, SW_CHAR, 3, SW_LONG, 36, SW_CHAR, 11, SW_LONG, 0, 512 },
 				{ 6, SW_LONG, 0, 24 },                                       /* cache */
-				{ 128, SW_LONG, 0, 512 },                                /* bitmap, fext */
-																		/* link */
+				{ 128, SW_LONG, 0, 512 },									/* bitmap, fext */
+																			/* link */
 				{ 6, SW_LONG, 64, SW_CHAR, 86, SW_LONG, 32, SW_CHAR, 12, SW_LONG, 0, 512 },
 				{ 4, SW_CHAR, 39, SW_LONG, 56, SW_CHAR, 10, SW_LONG, 0, 256 }, /* RDSK */
 				{ 4, SW_CHAR, 127, SW_LONG, 0, 512 },                          /* BADB */
@@ -28,11 +31,17 @@ namespace firy {
 				{ 4, SW_CHAR, 4, SW_LONG, 492, SW_CHAR, 0, 512 }             /* LSEG */
 			};
 
-			bool adfIsLeap(int y) {
-				return((bool)(!(y % 100) ? !(y % 400) : !(y % 4)));
+			/**
+			 * is leap year
+			 */
+			bool isLeapYear(int pYear) {
+				return ((bool) (!(pYear % 100) ? !(pYear % 400) : !(pYear % 4)));
 			}
 
-			void adfDays2Date(int32_t days, int* yy, int* mm, int* dd) {
+			/**
+			 *
+			 */
+			void convertDaysToDate(int32_t days, int* yy, int* mm, int* dd) {
 				int y, m;
 				int nd;
 				int jm[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -41,14 +50,14 @@ namespace firy {
 
 				/*--- year ---*/
 				y = 1978;
-				if (adfIsLeap(y))
+				if (isLeapYear(y))
 					nd = 366;
 				else
 					nd = 365;
 				while (days >= nd) {
 					days -= nd;
 					y++;
-					if (adfIsLeap(y))
+					if (isLeapYear(y))
 						nd = 366;
 					else
 						nd = 365;
@@ -56,7 +65,7 @@ namespace firy {
 
 				/*--- month ---*/
 				m = 1;
-				if (adfIsLeap(y))
+				if (isLeapYear(y))
 					jm[2 - 1] = 29;
 				while (days >= jm[m - 1]) {
 					days -= jm[m - 1];
@@ -69,17 +78,17 @@ namespace firy {
 			}
 
 			/*
-				* swapEndian
-				*
-				* magic :-) endian swap function (big -> little for read, little to big for write)
-				*/
-			void swapEndian(uint8_t* buf, int mType) {
+			 * blockSwapEndian
+			 *
+			 * magic :-) endian swap function (big -> little for read, little to big for write)
+			 */
+			void blockSwapEndian(uint8_t* buf, int mType) {
 				int i = 0, j = 0;
 				int p = 0;
 
-				while (swapTable[mType][i] != 0) {
-					for (j = 0; j < swapTable[mType][i]; j++) {
-						switch (swapTable[mType][i + 1]) {
+				while (blockEndianSwapTable[mType][i] != 0) {
+					for (j = 0; j < blockEndianSwapTable[mType][i]; j++) {
+						switch (blockEndianSwapTable[mType][i + 1]) {
 						case SW_LONG:
 
 							*(uint32_t*)(buf + p) = readBEDWord(buf + p);
@@ -99,8 +108,9 @@ namespace firy {
 					i += 2;
 				}
 
-				if (p != swapTable[mType][i + 1])
-					printf("Warning: Endian Swapping length");		/* BV */
+				if (p != blockEndianSwapTable[mType][i + 1]) {
+					throw new std::exception("blockSwapEndian length");
+				}
 			}
 
 
@@ -109,15 +119,24 @@ namespace firy {
 			 */
 			const size_t gBytesPerBlock = 512;
 
-			sADFFile::sADFFile(wpFilesystem pFilesystem) : sEntry(), sFile(pFilesystem) {
+			/**
+			 * File inside an ADF
+			 */
+			sFile::sFile(wpFilesystem pFilesystem) : sEntry(), filesystem::sFile(pFilesystem) {
 
 			}
 
-			sADFDir::sADFDir(wpFilesystem pFilesystem) : sEntry(), sDirectory(pFilesystem) {
+			/**
+			 * Directory inside ADF
+			 */
+			sDir::sDir(wpFilesystem pFilesystem) : sEntry(), filesystem::sDirectory(pFilesystem) {
 
 			}
 		}
 
+		/**
+		 * Constructor
+		 */
 		cADF::cADF(spSource pSource) : cImageAccess<access::cBlocks>(), access::cInterface(pSource) {
 			mBlockSize = adf::gBytesPerBlock;
 
@@ -166,7 +185,7 @@ namespace firy {
 			if (!filesystemBitmapLoad())
 				return false;
 
-			auto Root = std::make_shared<adf::sADFDir>(weak_from_this());
+			auto Root = std::make_shared<adf::sDir>(weak_from_this());
 			Root->mBlock = mBlockRoot;
 
 			mFsRoot = Root;
@@ -176,7 +195,7 @@ namespace firy {
 		/**
 		 * Load the contents of a directory
 		 */
-		bool cADF::entrysLoad(adf::spADFDir pDir) {
+		bool cADF::entrysLoad(adf::spDir pDir) {
 			auto block = blockLoad<adf::sEntryBlock>(pDir->mBlock);
 			if (!block)
 				return false;
@@ -225,7 +244,7 @@ namespace firy {
 				return 0;
 			case 2: 	// ST_DIR
 			case 4:	{	// ST_LDIR
-				auto Dir = std::make_shared<adf::sADFDir>(weak_from_this());
+				auto Dir = std::make_shared<adf::sDir>(weak_from_this());
 				node = Dir;
 				entry = Dir.operator->();
 				entry->mReal = blockEntry->realEntry;
@@ -235,7 +254,7 @@ namespace firy {
 			case 3:		// ST_LSOFT
 			case -3: 	// ST_FILE
 			case -4: {	// ST_LFILE
-				auto File = std::make_shared<adf::sADFFile>(weak_from_this());
+				auto File = std::make_shared<adf::sFile>(weak_from_this());
 				node = File;
 				entry = File.operator->();
 				entry->mReal = blockEntry->realEntry;
@@ -252,7 +271,7 @@ namespace firy {
 
 			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, adf::MAXNAMELEN));
 
-			adf::adfDays2Date(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
+			adf::convertDaysToDate(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
 			entry->hour = blockEntry->mins / 60;
 			entry->mins = blockEntry->mins % 60;
 			entry->secs = blockEntry->ticks / 50;
@@ -261,13 +280,16 @@ namespace firy {
 			entry->mNextSameHash = blockEntry->nextSameHash;
 
 			if(blockEntry->secType == 2)
-				entrysLoad(std::dynamic_pointer_cast<adf::sADFDir>(node));
+				entrysLoad(std::dynamic_pointer_cast<adf::sDir>(node));
 
 			return node;
 		}
 
+		/**
+		 * 
+		 */
 		spBuffer cADF::filesystemRead(spNode pFile) {
-			adf::spADFFile File = std::dynamic_pointer_cast<adf::sADFFile>(pFile);
+			adf::spFile File = std::dynamic_pointer_cast<adf::sFile>(pFile);
 			if (!File)
 				return {};
 
@@ -300,6 +322,7 @@ namespace firy {
 				}
 
 			} else {
+				// New Filesystem
 				for (int index = adf::MAX_DATABLK-1; index >= 0; --index) {
 					if (!blockFile->dataBlocks[index])
 						break;
@@ -337,10 +360,16 @@ namespace firy {
 			return buffer;
 		}
 
+		/**
+		 * Size of a block
+		 */
 		size_t cADF::blockSize(const tBlock pBlock) const {
 			return adf::gBytesPerBlock;
 		}
 
+		/** 
+		 * Is a block free
+		 */
 		bool cADF::blockIsFree(const tBlock pBlock) const {
 			tBlock sectOfMap = pBlock - 2;
 			tBlock block = sectOfMap / (127 * 32);
@@ -359,6 +388,9 @@ namespace firy {
 				& bitMask[sectOfMap % 32]) != 0);
 		}
 
+		/**
+		 * Get all blocks free
+		 */
 		std::vector<tBlock> cADF::blocksFree() const {
 			std::vector<tBlock> freeBlocks;
 			for (tBlock j = mBlockFirst + 2; j <= (mBlockLast - mBlockFirst); j++)
@@ -471,28 +503,28 @@ namespace firy {
 		template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
 
 			if (typeid(tBlockType) == typeid(adf::sBootBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 0);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 0);
 
 			if (typeid(tBlockType) == typeid(adf::sRootBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 1);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 1);
 
 			if (typeid(tBlockType) == typeid(adf::sEntryBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 3);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 3);
 
 			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 3);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 3);
 
 			if (typeid(tBlockType) == typeid(adf::sOFSDataBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 2);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 2);
 
 			if (typeid(tBlockType) == typeid(adf::sFileExtBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
 
 			if (typeid(tBlockType) == typeid(adf::sBitmapBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
 
 			if (typeid(tBlockType) == typeid(adf::sBitmapExtBlock))
-				adf::swapEndian((uint8_t*)pBlock.get(), 5);
+				adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
 		}
 
 		/**

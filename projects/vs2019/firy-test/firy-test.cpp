@@ -47,11 +47,48 @@ template <class tImage> void DumpImageBlocksFree(const std::string& pImage, cons
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
 
+inline bool ends_with(std::string const& value, std::string const& ending)
+{
+	if (ending.size() > value.size()) return false;
+	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
 int main()
 {
-	
-	auto aa = firy::gFiry->openImage("Robs_Workbench2.0.adf");
-	auto nn = firy::gFiry->openImage("test.d64");
+	auto dirs = firy::gResources->directoryList(firy::gResources->getcwd() + "/images", "");
+	auto raws = firy::gResources->directoryList(firy::gResources->getcwd() + "/_raw", "");
+
+	for (auto dir : dirs) {
+		if (firy::gResources->isFile(dir)) {
+			auto image = firy::gFiry->openImage(dir);
+			if (!image) {
+				std::cout << "Failed to detect image type: " << dir << "\n";
+				continue;
+			}
+
+			// Now we look for every file in raw
+			std::cout << "Testing " << dir << "\n";
+
+			if (image->filesystemNameGet() != "FIRY TEST DISK") {
+				std::cout << " Disk label fail\n";
+			}
+
+			for (auto raw : raws) {
+
+				auto a = raw.find_last_of("\\");
+
+				std::string filename = raw.substr(a + 1);
+				auto file = image->filesystemFile(filename);
+				auto content = file->read();
+
+				auto rawcontent = firy::gResources->FileRead(raw);
+
+				if (*content != *rawcontent) {
+					std::cout << " FAILED: file: " << filename << "\n";
+				}
+			}
+		}
+	}
 
 
 	return 0;
@@ -76,7 +113,7 @@ int main()
 
 		int year, month, days;
 
-		firy::images::adf::adfDays2Date(adf->mRootBlock->days, &year, &month, &days);
+		firy::images::adf::convertDaysToDate(adf->mRootBlock->days, &year, &month, &days);
 
 		std::cout << "Year: " << year << " Month: " << month << " Day: " << days << "\n";
 		std::cout << "Label: " << adf->filesystemNameGet() << "\n";

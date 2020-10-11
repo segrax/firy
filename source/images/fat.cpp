@@ -124,13 +124,15 @@ namespace firy {
 				}
 			}
 
-			mClustersTotal = (blockCount() - mBlockData) / mBootBlock->mBiosParams.mSectorsPerCluster;
-			if (mClustersTotal < 4085)
-				mType = fat::FAT12;
-			else if (mClustersTotal < 65525)
-				mType = fat::FAT16;
-			else if (mClustersTotal <= 268435455)
-				mType = fat::FAT32;
+			if (mBootBlock->mBiosParams.mSectorsPerCluster) {
+				mClustersTotal = (blockCount() - mBlockData) / mBootBlock->mBiosParams.mSectorsPerCluster;
+				if (mClustersTotal < 4085)
+					mType = fat::FAT12;
+				else if (mClustersTotal < 65525)
+					mType = fat::FAT16;
+				else if (mClustersTotal <= 268435455)
+					mType = fat::FAT32;
+			}
 
 			if (mType == !clusterMapLoad()) {
 				return false;

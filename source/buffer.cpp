@@ -48,7 +48,7 @@ namespace firy {
 	 * Get a word, big-endian
 	 */
 	uint16_t cBuffer::getWordBE(const size_t pOffset) const {
-		const uint16_t* bytes = reinterpret_cast<const uint16_t*>(&at(pOffset));
+		const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&at(pOffset));
 		return uint16_t((bytes[0] << 8) + bytes[1]);
 	}
 
@@ -56,7 +56,7 @@ namespace firy {
 	 * Get a double-word, big-endian
 	 */
 	uint32_t cBuffer::getDWordBE(const size_t pOffset) const {
-		const uint32_t* bytes = reinterpret_cast<const uint32_t*>(&at(pOffset));
+		const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&at(pOffset));
 		return uint32_t((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + (bytes[3]));
 	}
 
@@ -85,4 +85,13 @@ namespace firy {
 		insert(end(), pBuffer->begin(), pBuffer->end());
 	}
 
+	bool cBuffer::operator==(const cBuffer& pBuffer) {
+		if (size() != pBuffer.size())
+			return false;
+		return std::equal(begin(), end(), pBuffer.begin());
+	}
+
+	bool cBuffer::operator!=(const cBuffer& pBuffer) {
+		return !this->operator==(pBuffer);
+	}
 }

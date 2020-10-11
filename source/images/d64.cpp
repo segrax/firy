@@ -30,7 +30,7 @@ namespace firy {
 		/**
 		 * Get the name of the disk
 		 */
-		std::string cD64::filesystemNameGet() {
+		std::string cD64::filesystemNameGet() const {
 			return mLabel;
 		}
 
@@ -97,9 +97,9 @@ namespace firy {
 					noCopy = true;
 
 				// Last Sector of file? 
-				if (!ts.first) {
+				if (!sectorptr[0]) {
 					// Bytes used by the final sector stored in the T/S chain sector value
-					copySize = (uint16_t)(ts.second - 1);
+					copySize = (uint16_t)(sectorptr[1] - 1);
 					// Adjust bufer size to match the final file size
 					buffer->resize(buffer->size() - (d64::gBytesPerSector - copySize));
 				}

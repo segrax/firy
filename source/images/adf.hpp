@@ -2,7 +2,7 @@ namespace firy {
 	namespace images {
 		namespace adf {
 
-			void adfDays2Date(int32_t days, int* yy, int* mm, int* dd);
+			void convertDaysToDate(int32_t days, int* yy, int* mm, int* dd);
 
 			const size_t HT_SIZE = 72;
 			const size_t BM_SIZE = 25;
@@ -183,16 +183,16 @@ namespace firy {
 			/**
 			 * Amiga: Representation of a file on a disk
 			 */
-			struct sADFFile : public sEntry, public filesystem::sFile {
-				sADFFile(wpFilesystem pFilesystem);
+			struct sFile : public sEntry, public filesystem::sFile {
+				sFile(wpFilesystem pFilesystem);
 			};
 
-			struct sADFDir : public sEntry, public filesystem::sDirectory {
-				sADFDir(wpFilesystem pFilesystem);
+			struct sDir : public sEntry, public filesystem::sDirectory {
+				sDir(wpFilesystem pFilesystem);
 			};
 
-			typedef std::shared_ptr<sADFFile> spADFFile;
-			typedef std::shared_ptr<sADFDir> spADFDir;
+			typedef std::shared_ptr<sFile> spFile;
+			typedef std::shared_ptr<sDir> spDir;
 		}
 
 		/**
@@ -238,7 +238,7 @@ namespace firy {
 			bool blockRootLoad();
 
 			spNode entryLoad(const tBlock pOffset);
-			bool entrysLoad(adf::spADFDir pNode);
+			bool entrysLoad(adf::spDir pNode);
 
 
 		public:

@@ -43,7 +43,7 @@ namespace firy {
 		public:
 			cD64(spSource pSource);
 
-			virtual std::string filesystemNameGet();
+			virtual std::string filesystemNameGet() const;
 			virtual bool filesystemPrepare();
 			virtual spBuffer filesystemRead(spNode pFile);
 

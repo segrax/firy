@@ -25,7 +25,7 @@ namespace firy {
 			std::error_code ec;
 			std::string file = iter->path().string();
 
-			if(file.find(pExtension) != file.npos)
+			if(pExtension.size() == 0 || file.find(pExtension) != file.npos)
 				files.push_back(file);
 
 			iter.increment(ec);
