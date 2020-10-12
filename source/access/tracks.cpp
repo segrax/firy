@@ -70,8 +70,8 @@ namespace firy {
 		 * Write a sector
 		 */
 		bool cTracks::sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) {
-			// TODO
-			return false;
+			
+			return sourceBufferWrite(sectorOffset(pTS), pBuffer);;
 		}
 
 		/**

@@ -44,6 +44,11 @@ namespace firy {
 				size_t offset = mainoffset % mSourceChunkSize;
 				size_t size = Buffer->size() - offset;
 
+				// Read past end of buffer?
+				if (Buffer->size() < offset) {
+					return (pTarget - ptr);
+				}
+
 				size_t maxSize = (pSize < size) ? pSize : size;
 				if (remainSize < maxSize)
 					maxSize = remainSize;
@@ -56,6 +61,43 @@ namespace firy {
 			}
 
 			return pSize;
+		}
+
+		/**
+		 * Write into the source chunk
+		 */
+		bool cInterface::bufferWrite(const size_t pOffset, spBuffer pBuffer) {
+			size_t remainSize = pBuffer->size();
+			size_t mainoffset = pOffset;
+
+			auto ptr = pBuffer->data();
+			auto ptrEnd = ptr + pBuffer->size();
+
+			while (remainSize && ptr < ptrEnd) {
+				auto Buffer = chunk(mainoffset);
+				if (!Buffer)
+					return 0;
+
+				size_t offset = mainoffset % mSourceChunkSize;
+				size_t size = Buffer->size() - offset;
+
+				// Write past end of buffer?
+				if (Buffer->size() < offset) {
+					return false;
+				}
+
+				size_t maxSize = (remainSize < size) ? remainSize : size;
+				Buffer->write(offset, pBuffer);
+
+				memcpy(Buffer->data() + offset, ptr, maxSize);
+				remainSize -= maxSize;
+				ptr += maxSize;
+
+				mainoffset += size;
+			}
+			
+			pBuffer->dirty(false);
+			return true;
 		}
 
 		size_t cInterface::size() const { 

@@ -20,7 +20,7 @@ namespace firy {
 			mBlockPartitionStart = 0;
 			mBlockFAT = 0;
 			mBlockRoot = 0;
-			mType = fat::eType::FAT12;
+			mType = fat::eType::eType_FAT12;
 		}
 
 		tBlock cFAT::fatSectorNext(tBlock pCluster) const {
@@ -31,9 +31,9 @@ namespace firy {
 
 			auto next = mClusterMap[pCluster];
 			if ((next == 0) || 
-				(mType == fat::FAT12 && next >= 0x0FF0 && next <= 0x0FFF) ||
-				(mType == fat::FAT16 && next >= 0xFFF0 && next <= 0xFFFF) ||
-				(mType == fat::FAT32 && next >= 0x0FFFFFF0 && next <= 0x0FFFFFFF))
+				(mType == fat::eType_FAT12 && next >= 0x0FF0 && next <= 0x0FFF) ||
+				(mType == fat::eType_FAT16 && next >= 0xFFF0 && next <= 0xFFFF) ||
+				(mType == fat::eType_FAT32 && next >= 0x0FFFFFF0 && next <= 0x0FFFFFFF))
 				return 0;
 			
 			return next & 0x0FFFFFFF;
@@ -43,8 +43,8 @@ namespace firy {
 			tBlock totalClusters = 1, cl;
 
 			// The root directory (start=0) has a fixed size.
-			if (mType != fat::FAT32 && pStart == mClusterRoot && mBootBlock->mBiosParams.mRootEntryCount)
-				return (mBootBlock->mBiosParams.mRootEntryCount * sizeof(fat::sFileEntry)) / blockSize();
+			//if (mType != fat::eType_FAT32 && pStart == mClusterRoot && mBootBlock->mBiosParams.mRootEntryCount)
+			//	return (mBootBlock->mBiosParams.mRootEntryCount * sizeof(fat::sFileEntry)) / blockSize();
 
 			cl = pStart;
 			while (pStart) {
@@ -68,6 +68,9 @@ namespace firy {
 		 * 
 		 */
 		std::string cFAT::filesystemNameGet() const {
+			if (mLabel.size())
+				return mLabel;
+
 			return std::string(mBootBlock->mBiosParam.mLabel, strlen(mBootBlock->mBiosParam.mLabel));
 		}
 
@@ -101,10 +104,13 @@ namespace firy {
 			if (!mBootBlock)
 				return false;
 
+			if (mBootBlock->mSignature1 != 0x55 || mBootBlock->mSignature2 != 0xAA)
+				return false;
+
 			mBlockPartitionStart = pNumber;
 			mBlockFAT = mBlockPartitionStart + mBootBlock->mBiosParams.mSectorsReserved;
 
-			//FAT12 / FAT16
+			//eType_FAT12 / eType_FAT16
 			if (mBootBlock->mBiosParams.mSectorsPerFAT && mBootBlock->mBiosParams.mSectorsPerCluster <= 128) {
 				//if (!strncmp((const char*)mBootBlock->mBiosParam.system, "FAT", 3)) {
 
@@ -126,15 +132,15 @@ namespace firy {
 
 			if (mBootBlock->mBiosParams.mSectorsPerCluster) {
 				mClustersTotal = (blockCount() - mBlockData) / mBootBlock->mBiosParams.mSectorsPerCluster;
-				if (mClustersTotal < 4085)
-					mType = fat::FAT12;
-				else if (mClustersTotal < 65525)
-					mType = fat::FAT16;
-				else if (mClustersTotal <= 268435455)
-					mType = fat::FAT32;
+				if (mClustersTotal < 4085 && mBootBlock->mBiosParams.mSectorsTotal)
+					mType = fat::eType_FAT12;
+				else if (mClustersTotal < 65525 && mBootBlock->mBiosParams.mSectorsTotal)
+					mType = fat::eType_FAT16;
+				else if (mClustersTotal <= 268435455 && !mBootBlock->mBiosParams.mSectorsTotal && mBootBlock->mBiosParams.mSectorsTotal_H)
+					mType = fat::eType_FAT32;
 			}
 
-			if (mType == !clusterMapLoad()) {
+			if (mType == fat::eType_Unknown || !clusterMapLoad()) {
 				return false;
 			}
 
@@ -156,7 +162,7 @@ namespace firy {
 		bool cFAT::clusterMapLoad() {
 			mClusterMap.clear();
 
-			if (mType == fat::FAT12) {
+			if (mType == fat::eType_FAT12) {
 				auto blockFat = sourceBufferCopy(mBlockFAT * blockSize(), 4608 * 3);
 				if (!blockFat)
 					return false;
@@ -166,7 +172,7 @@ namespace firy {
 					mClusterMap.push_back((blockFat->at(i + 1) + (blockFat->at(i + 2) << 8)) >> 4);
 				}
 			}
-			else if (mType == fat::FAT16) {
+			else if (mType == fat::eType_FAT16) {
 				size_t size = (mBootBlock->mBiosParams.mSectorsPerFAT * mBootBlock->mBiosParams.mFatCount) * blockSize();
 				auto blockFat = sourceBufferCopy(mBlockFAT * blockSize(), size);
 				if (!blockFat)
@@ -176,7 +182,7 @@ namespace firy {
 					mClusterMap.push_back((blockFat->at(i) + (blockFat->at(i + 1) << 8)) & 0xFFFF);
 				}
 			}
-			else if (mType == fat::FAT32) {
+			else if (mType == fat::eType_FAT32) {
 				size_t size = (mBlockFAT + mBootBlock->mBiosParam32.mFatTotalSectors) * blockSize();
 				auto blockFat = sourceBufferCopy(mBlockFAT * blockSize(), size);
 				if (!blockFat)
@@ -262,13 +268,15 @@ namespace firy {
 
 			spBuffer block;
 			
-			if(pDir == mFsRoot && mType != fat::FAT32)
+			if(pDir == mFsRoot && mType != fat::eType_FAT32)
 				block = clusterChainReadRoot(pDir->mBlock);
 			else
 				block = clusterChainRead(pDir->mFirstCluster);
 
 			fat::sFileEntry* Entry = (fat::sFileEntry*) block->data();
 			fat::sFileEntry* LastEntry = Entry + (block->size() / sizeof(fat::sFileEntry));
+
+			std::vector<fat::sFileLongNameEntry*> LongEntries;
 
 			for (; Entry != LastEntry; ++Entry) {
 				if (!Entry->Name[0]) {
@@ -279,10 +287,13 @@ namespace firy {
 					continue;
 
 				// Long File Name
-				if (Entry->Attribute == 0x0F)
+				if (Entry->Attribute == 0x0F) {
+					auto LongEntry = reinterpret_cast<fat::sFileLongNameEntry*>(Entry);
+					LongEntries.push_back(LongEntry);
 					continue;
+				}
 
-				auto entry = entryLoad(Entry, 0);
+				auto entry = entryLoad(Entry, LongEntries);
 				if (entry) {
 					if (typeid(*entry) == typeid(fat::sDir)) {
 						if (entry->mName == "." || entry->mName == "..")
@@ -300,13 +311,13 @@ namespace firy {
 		/**
 		 * Load an individual entry in a directory listing
 		 */
-		spNode cFAT::entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock) {
+		spNode cFAT::entryLoad(const fat::sFileEntry* pEntry,  std::vector<fat::sFileLongNameEntry*>& pLongEntries) {
 			spNode result;
 			fat::sEntry* entry = 0;
 
 			auto StartCluster = (uint32_t)pEntry->StartCluster;
 
-			if (mType == fat::FAT32) {
+			if (mType == fat::eType_FAT32) {
 				StartCluster |= ((uint32_t)pEntry->StartClusterHi) << 16;
 			}
 			if (pEntry->Attributes.directory) {
@@ -325,13 +336,55 @@ namespace firy {
 
 			entry->mFirstCluster = StartCluster;
 			entry->mBlock = clusterToBlock(StartCluster);
+
 			result->mName.append((const char*)pEntry->Name, 8);
 			result->mName = rtrim(result->mName, 0x20);	// Trim spaces
 
-			if (!pEntry->Attributes.directory) {
+			std::string extension = "";
+			extension.append((const char*)pEntry->Extension, 3);
+			extension = rtrim(extension, 0x20);	// Trim spaces
+
+			if (!pEntry->Attributes.directory && !pEntry->Attributes.mLabel && extension.size()) {
 				result->mName.append(".");
-				result->mName.append((const char*)pEntry->Extension, 3);
-				result->mName = rtrim(result->mName, 0x20);	// Trim spaces
+			}
+
+			result->mName.append(extension);
+
+			if (pEntry->Attributes.mLabel) {
+				mLabel = result->mName;
+				return 0;;
+			}
+
+			if (pLongEntries.size()) {
+				entry->mShortName = result->mName;
+
+				std::sort(pLongEntries.begin(), pLongEntries.end(), [](const auto& lhs, const auto& rhs)
+					{
+						return (lhs->mSequence & 0x3F) < rhs->mSequence;
+					});
+
+				for (auto lfn : pLongEntries) {
+					entry->mUnicodeName.append((const wchar_t*)lfn->mName1, lstrlenW(lfn->mName1) > 5 ? 5 : lstrlenW(lfn->mName1));
+
+					if ((lfn->mName2[0] == 0xFFFF) && (lfn->mName2[1] == 0xFFFF)) {
+						break;
+					}
+					entry->mUnicodeName.append((const wchar_t*)lfn->mName2, lstrlenW(lfn->mName2) > 6 ? 6 : lstrlenW(lfn->mName2));
+
+					if ((lfn->mName3[0] == 0xFFFF) && (lfn->mName3[1] == 0xFFFF)) {
+						break;
+					}
+
+					entry->mUnicodeName.append((const wchar_t*)lfn->mName3, lstrlenW(lfn->mName3) > 2 ? 2 : lstrlenW(lfn->mName3));
+				}
+				auto size = entry->mUnicodeName.size();
+
+				char* mbstr = new char[size * 2];
+				wcstombs_s(&size, mbstr, size * 2, entry->mUnicodeName.data(), size);
+
+				result->mName = mbstr;
+
+				pLongEntries.clear();
 			}
 			return result;
 		}
@@ -403,14 +456,13 @@ namespace firy {
 			return false;
 		}
 
-		fat::spFile cFAT::filesystemEntryProcess(const uint8_t* pBuffer) {
-			return {};
-		}
-
 		bool cFAT::filesystemBitmapLoad() {
 			return false;
 		}
 
+		bool cFAT::filesystemBitmapSave() {
+			return false;
+		}
 
 	}
 }

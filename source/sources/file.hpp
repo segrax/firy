@@ -12,6 +12,7 @@ namespace firy {
 
 			virtual bool open(const std::string pFile);
 			virtual void close();
+			virtual bool save(const std::string pFile);
 
 			virtual spBuffer chunk(const size_t pFileOffset = 0);
 

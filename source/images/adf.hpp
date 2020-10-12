@@ -17,7 +17,7 @@ namespace firy {
 			};
 
 			enum eType {
-				UNKNOWN = 0,
+				eType_Unknown = 0,
 				FLOPPY_DD = 1,
 				FLOPPY_HD = 2,
 				HARDDRIVE = 3
@@ -227,6 +227,7 @@ namespace firy {
 			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
 			virtual bool filesystemChainLoad(spFile pFile);
 			virtual bool filesystemBitmapLoad();
+			virtual bool filesystemBitmapSave();
 
 		private:
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock);

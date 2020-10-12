@@ -21,6 +21,7 @@ namespace firy {
 
 		sNode::sNode(wpFilesystem pFilesystem) {
 			mFilesystem = pFilesystem;
+			mDirty = false;
 		}
 
 		spNode sNode::getByName(const std::string& pName, const bool pCaseSensitive) {

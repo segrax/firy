@@ -6,9 +6,10 @@ namespace firy {
 			 * Supported FAT revisions
 			 */
 			enum eType {
-				FAT12,
-				FAT16,
-				FAT32
+				eType_Unknown,
+				eType_FAT12,
+				eType_FAT16,
+				eType_FAT32
 			};
 
 #pragma pack(1)
@@ -34,7 +35,7 @@ namespace firy {
 			};
 
 			/*
-			 *	BIOS Parameter Block structure (FAT12/16)
+			 *	BIOS Parameter Block structure (eType_FAT12/16)
 			 */
 			struct sBiosParam {
 				uint16_t mBytesPerSector;		// bytes per sector
@@ -48,11 +49,11 @@ namespace firy {
 				uint16_t mSectorsPerTrack;		// sectors per track
 				uint16_t mHeads;				// disk heads
 				uint32_t mSectorsHidden;		// hidden sectors
-				uint32_t mSectorsTotal_H;		// FAT32 Sectors Total
+				uint32_t mSectorsTotal_H;		// eType_FAT32 Sectors Total
 			};
 
 			/*
-			 *	Extended BIOS Parameter Block structure (FAT12/16)
+			 *	Extended BIOS Parameter Block structure (eType_FAT12/16)
 			 */
 			struct sBiosExParam {
 				uint8_t  mUnit;				// int 13h drive#
@@ -64,7 +65,7 @@ namespace firy {
 			};
 
 			/*
-			 *	Extended BIOS Parameter Block structure (FAT32)
+			 *	Extended BIOS Parameter Block structure (eType_FAT32)
 			 */
 			struct sBiosExParam32 {
 				uint32_t mFatTotalSectors;		// big FAT size in sectors
@@ -131,17 +132,34 @@ namespace firy {
 				uint16_t CrtTime;
 				uint16_t CrtDate;
 				uint16_t LstAccDate;
-				uint16_t StartClusterHi;	// FAT32
+				uint16_t StartClusterHi;	// eType_FAT32
 				uint16_t Time;
 				uint16_t Date;
 				uint16_t StartCluster;
 				uint32_t FileLength;
 			};
+
+			struct sFileLongNameEntry {
+				uint8_t mSequence;
+				wchar_t mName1[5];
+				union {
+					sFileAttribute Attributes;
+					uint8_t Attribute;
+				};
+				uint8_t mReserved;
+				uint8_t mChecksum;
+				wchar_t mName2[6];
+				uint16_t mReserved2;
+				wchar_t mName3[2];
+			};
+
 #pragma pack()
 
 			struct sEntry {
 				tBlock mBlock;
 				tBlock mFirstCluster;
+				std::string mShortName;
+				std::wstring mUnicodeName;
 			};
 
 			/**
@@ -197,8 +215,8 @@ namespace firy {
 			}
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
-			virtual fat::spFile filesystemEntryProcess(const uint8_t* pBuffer);
 			virtual bool filesystemBitmapLoad();
+			virtual bool filesystemBitmapSave();
 
 		private:
 			tBlock fatSectorNext(tBlock pCluster) const;
@@ -206,10 +224,11 @@ namespace firy {
 			tBlock clusterToBlock(tBlock pCluster) const;
 			bool clusterMapLoad();
 
-			spNode entryLoad(const fat::sFileEntry* pEntry, const tBlock pBlock);
+			spNode entryLoad(const fat::sFileEntry* pEntry, std::vector<fat::sFileLongNameEntry*>& pLongEntries);
 
 			bool entrysLoad(fat::spDir pDir);
 
+		private:
 			std::shared_ptr<fat::sBootRecordBlock> mBootBlock;
 
 			fat::eType mType;
@@ -223,6 +242,7 @@ namespace firy {
 			tBlock mClusterRoot;	// Cluster of Root
 			tBlock mClustersTotal;	// Total number of clusters
 
+			std::string mLabel;
 			std::vector<uint32_t> mClusterMap;
 		};
 	}

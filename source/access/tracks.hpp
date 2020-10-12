@@ -39,6 +39,26 @@ namespace firy {
 			virtual size_t trackSize(const tTrack pTrack = 0) const;
 			
 			/**
+			 * Is a T/S free
+			 */
+			virtual bool sectorIsFree(const tTrackSector pTS) const = 0;
+
+			/**
+			 * Get 'pTotal' number of free sectors, marking them used
+			 */
+			virtual std::vector<tTrackSector> sectorsUse(const tSector pTotal) = 0;
+
+			/**
+			 * Free all sectors in 'pSectors'
+			 */
+			virtual bool sectorsFree(const std::vector<tTrackSector> pSectors) = 0;
+
+			/**
+			 * Get the free sectors on a track
+			 */
+			virtual std::vector<tTrackSector> sectorsGetFree(const tTrack pTrack = 0) const = 0;
+
+			/**
 			 * Read the provided T/S
 			 */
 			virtual spBuffer sectorRead(const tTrackSector pTS);

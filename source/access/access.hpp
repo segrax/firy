@@ -26,7 +26,7 @@ namespace firy {
 			 */
 			inline void assertSource() const {
 				if (!mSource)
-					throw new std::exception("Source was not found");
+					throw std::exception("Source was not found");
 			}
 
 			/**
@@ -55,6 +55,20 @@ namespace firy {
 			 */
 			spBuffer sourceBufferChunk(const size_t pOffset = 0) {
 				return mSource->chunk(pOffset);
+			}
+
+			/**
+			 * Write to a chunk
+			 */
+			bool sourceBufferWrite(const size_t pOffset, const spBuffer pBuffer) {
+				return mSource->bufferWrite(pOffset, pBuffer);
+			}
+
+			/**
+			 * Save changes back to source
+			 */
+			bool sourceSave() {
+				return mSource->save();
 			}
 
 			/**

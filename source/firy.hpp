@@ -12,6 +12,7 @@ namespace firy {
 	typedef size_t tSize;
 }
 
+#include "debug.hpp"
 #include "buffer.hpp"
 
 #include "resources.hpp"

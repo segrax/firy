@@ -23,9 +23,12 @@ namespace firy {
 			virtual spDirectory filesystemPath(const std::string& pPath);
 			virtual spFile filesystemFile(const std::string& pPath);
 			virtual spBuffer filesystemRead(spNode pFile) = 0;
+			virtual spNode filesystemAdd(spNode pFile) { gDebug->error("not implemented"); return 0; }
 
+			virtual bool filesystemSave() { gDebug->error("not implemented"); return false; }
 			virtual bool filesystemPrepare() = 0;
 
+			virtual bool filesystemIsDirty() const { return mDirty; }
 		protected:
 
 			/**
@@ -33,9 +36,11 @@ namespace firy {
 			 */
 			virtual bool filesystemChainLoad(spFile pFile) = 0;
 			virtual bool filesystemBitmapLoad() = 0;
+			virtual bool filesystemBitmapSave() = 0;
 
 			spDirectory mFsRoot;
 			std::string mFsPathSeperator;
+			bool mDirty;
 		};
 	}
 

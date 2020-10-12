@@ -74,6 +74,16 @@ namespace firy {
 		return fileBuffer;
 	}
 
+	bool cResources::FileWrite(const std::string& pFile, const size_t pOffset, spBuffer pBuffer) {
+		std::ofstream outfile(pFile, std::ofstream::binary | std::ofstream::app);
+		if (!outfile.is_open())
+			return false;
+		outfile.seekp(pOffset, std::ios::beg);
+		outfile.write((const char*)pBuffer->data(), pBuffer->size());
+		outfile.close();
+		pBuffer->dirty(false);
+	}
+
 	bool cResources::FileSave(const std::string& pFile, const std::string& pData) {
 		std::ofstream outfile(pFile, std::ofstream::binary);
 		if (!outfile.is_open())
@@ -98,7 +108,6 @@ namespace firy {
 		if (fileStream->is_open()) {
 			fileStream->seekg(0, std::ios::end);
 			size = fileStream->tellg();
-			fileStream->seekg(std::ios::beg);
 			fileStream->close();
 		}
 		return size;

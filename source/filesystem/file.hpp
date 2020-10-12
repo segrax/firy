@@ -8,10 +8,9 @@ namespace firy {
 
 			virtual spBuffer read();
 
-
 			bool mChainBroken;
-			std::vector<tTrackSector> mChain;
 			tSize mSizeInBytes;
+			tBuffer mContent;
 		};
 
 		typedef std::shared_ptr<filesystem::sFile> spFile;

@@ -10,11 +10,13 @@ namespace firy {
 
 			virtual bool open(const std::string pID) = 0;
 			virtual void close() = 0;
+			virtual bool save(const std::string pID = "") = 0;
 
 			virtual spBuffer chunk(const size_t pFileOffset = 0) = 0;
 
 			virtual spBuffer bufferCopy(const size_t pOffset = 0, const size_t pSize = 0);
 			virtual size_t bufferCopyTo(uint8_t* pTarget, const size_t pSize, const size_t pOffset = 0);
+			virtual bool bufferWrite(const size_t pOffset, spBuffer pBuffer);
 
 			virtual size_t size() const;
 

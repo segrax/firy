@@ -22,6 +22,30 @@ namespace firy {
 		}
 
 		/**
+		 * Save modified buffers to file
+		 */
+		bool cFile::save(const std::string pFile) {
+
+			// Total new file?
+			if (pFile.size() && pFile != mFilename) {
+				gDebug->error("Save as not implemented");
+				return false;
+			}
+
+			for (auto& buffer : mBuffers) {
+				if (buffer.second->isDirty()) {
+					size_t offset = buffer.first * mSourceChunkSize;
+					if (!gResources->FileWrite(mFilename, offset, buffer.second)) {
+						gDebug->error("Failed to save: ", mFilename);
+						return false;
+					}
+				}
+			}
+			return true;
+
+		}
+
+		/**
 		 * Clear all buffers
 		 */
 		void cFile::close() {

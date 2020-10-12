@@ -8,7 +8,8 @@ namespace firy {
 
 		spBuffer FileRead(const std::string& pFile, const size_t pOffset = 0, const size_t pSize = 0);
 		std::string	FileReadStr(const std::string& pFile);
-
+		bool FileWrite(const std::string& pFile, const size_t pOffset, spBuffer pBuffer);
+		
 		bool FileSave(const std::string& pFile, const std::string& pData);
 		bool FileSave(const std::string& pFile, const spBuffer pData);
 

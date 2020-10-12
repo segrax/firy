@@ -109,7 +109,7 @@ namespace firy {
 				}
 
 				if (p != blockEndianSwapTable[mType][i + 1]) {
-					throw new std::exception("blockSwapEndian length");
+					throw std::exception("blockSwapEndian length");
 				}
 			}
 
@@ -415,7 +415,7 @@ namespace firy {
 			else if (sourceSize() > 512 * 22 * 2 * 80)
 				return(adf::eType::HARDDRIVE);
 			
-			return adf::eType::UNKNOWN;
+			return adf::eType::eType_Unknown;
 		}
 
 		std::string cADF::filesystemNameGet() const {
@@ -434,7 +434,7 @@ namespace firy {
 				if (page) {
 					auto block = blockLoad<adf::sBitmapBlock>(page);
 					if (!block) {
-						std::cout << "bitmap block load error\n";
+						gDebug->error("bitmap block load error");
 						return false;
 					}
 					mBitmapBlocks.push_back(block);
@@ -448,7 +448,7 @@ namespace firy {
 					if (page) {
 						auto block = blockLoad<adf::sBitmapBlock>(page);
 						if (!block) {
-							std::cout << "bitmap block load error\n";
+							gDebug->error("bitmap block load error");
 							return false;
 						}
 						mBitmapBlocks.push_back(block);
@@ -459,6 +459,10 @@ namespace firy {
 			}
 
 			return true;
+		}
+
+		bool cADF::filesystemBitmapSave() {
+			return false;
 		}
 
 		bool cADF::blockBootLoad() {
@@ -558,8 +562,8 @@ namespace firy {
 
 				if (blockptr->data[0] != 0) {
 					if (checksum != block->checkSum) {
-						std::cout << "Block checksum fail\n";
-						//return 0;
+						gDebug->error("Boot Block checksum fail");
+						return 0;
 					}
 				}
 				return block;
@@ -571,7 +575,7 @@ namespace firy {
 			blockSwapEndian(block);
 
 			if (checksum != block->checkSum) {
-				std::cout << "Block checksum fail\n";
+				gDebug->error("Block checksum fail");
 				return 0;
 			}
 			return block;

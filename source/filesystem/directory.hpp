@@ -7,6 +7,11 @@ namespace firy {
 			sDirectory(wpFilesystem pFilesystem);
 
 			virtual spNode getByName(const std::string& pName, const bool pCaseSensitive = false) override;
+			virtual spNode add(spNode pNode) {
+				mNodes.push_back(pNode);
+				mDirty = true;
+				return pNode;
+			}
 		};
 	}
 

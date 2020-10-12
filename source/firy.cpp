@@ -9,6 +9,7 @@ namespace firy {
 	std::shared_ptr<cResources> gResources;
 
 	std::shared_ptr<cFiry> gFiry = std::make_shared<cFiry>();
+	std::shared_ptr<cDebug> gDebug = std::make_shared<cDebug>(0);
 
 	/**
 	 *
@@ -47,15 +48,31 @@ namespace firy {
 	 *
 	 */
 	spImage cFiry::openImage(const std::string& pFilename) {
+		gDebug->outputDisable(true);
 
-		spImage file = openImageFile<images::cD64>(pFilename);
+		spImage file = 0;
 
-		if(!file)
-			file = openImageFile<images::cADF>(pFilename);
+		// D64
+		try {
+			file = openImageFile<images::cD64>(pFilename);
+		} catch (std::exception exception) {
+		}
 
-		if(!file)
-			file = openImageFile<images::cFAT>(pFilename);
+		// ADF
+		try {
+			if (!file)
+				file = openImageFile<images::cADF>(pFilename);
+		} catch (std::exception exception) {
+		}
 
+		// FAT
+		try {
+			if (!file)
+				file = openImageFile<images::cFAT>(pFilename);
+		} catch (std::exception exception) {
+		}
+
+		gDebug->outputDisable(false);
 		return file;
 	}
 }

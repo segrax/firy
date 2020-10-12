@@ -75,6 +75,9 @@
     <ClInclude Include="..\..\source\buffer.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\debug.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">
@@ -111,6 +114,9 @@
       <Filter>Source Files\filesystem</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
