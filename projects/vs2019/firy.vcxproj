@@ -133,6 +133,7 @@
     <ClInclude Include="..\..\source\filesystem\filesystem.hpp" />
     <ClInclude Include="..\..\source\filesystem\node.hpp" />
     <ClInclude Include="..\..\source\firy.hpp" />
+    <ClInclude Include="..\..\source\helpers\dirty.hpp" />
     <ClInclude Include="..\..\source\images\adf.hpp" />
     <ClInclude Include="..\..\source\images\d64.hpp" />
     <ClInclude Include="..\..\source\images\image.hpp" />

@@ -10,7 +10,42 @@ namespace firy {
 		 */
 		cInterface::cInterface(const size_t pChunkSize) {
 			mSourceSize = 0;
+			chunkSizeSet(pChunkSize);
+			mCreating = false;
+		}
+
+		/**
+		 * Set the size of a chunk
+		 */
+		void cInterface::chunkSizeSet(const size_t pChunkSize) {
 			mSourceChunkSize = pChunkSize;
+			mBuffers.clear();
+		}
+
+		/**
+		 * Create chunk(s) to set a minimum size of an image
+		 *
+		 * This would be used if you require a specific image size
+		 *  But dont want to adjust mSourceChunkSize to be a multiple of it
+		 */
+		bool cInterface::chunkPrepare(size_t pSize) {
+			size_t index = 0;
+
+			while (pSize) {
+				auto chunk = std::make_shared<tBuffer>();
+				auto chunkSize = mSourceChunkSize;
+
+				if (pSize < mSourceChunkSize) {
+					chunkSize = pSize;
+				}
+
+				chunk->resize(chunkSize);
+				mBuffers.insert({ index++, chunk });
+				pSize -= chunkSize;
+			}
+
+			dirty();
+			return true;
 		}
 
 		/**
@@ -53,6 +88,7 @@ namespace firy {
 				if (remainSize < maxSize)
 					maxSize = remainSize;
 
+
 				memcpy(ptr, Buffer->data() + offset, maxSize);
 				remainSize -= maxSize;
 				ptr += maxSize;
@@ -70,10 +106,10 @@ namespace firy {
 			size_t remainSize = pBuffer->size();
 			size_t mainoffset = pOffset;
 
-			auto ptr = pBuffer->data();
-			auto ptrEnd = ptr + pBuffer->size();
+			size_t ptrOffset = 0;
+			auto ptrEnd = pBuffer->size();
 
-			while (remainSize && ptr < ptrEnd) {
+			while (remainSize && ptrOffset < ptrEnd) {
 				auto Buffer = chunk(mainoffset);
 				if (!Buffer)
 					return 0;
@@ -87,15 +123,14 @@ namespace firy {
 				}
 
 				size_t maxSize = (remainSize < size) ? remainSize : size;
-				Buffer->write(offset, pBuffer);
-
-				memcpy(Buffer->data() + offset, ptr, maxSize);
+				Buffer->write(offset, pBuffer, ptrOffset, maxSize);
 				remainSize -= maxSize;
-				ptr += maxSize;
+				ptrOffset += maxSize;
 
 				mainoffset += size;
 			}
 			
+			dirty();
 			pBuffer->dirty(false);
 			return true;
 		}
@@ -107,7 +142,7 @@ namespace firy {
 		/**
 		 * Get a pointer to a buffer chunk
 		 */
-		uint8_t* cInterface::chunkPtr(const size_t pOffset) {
+		uint8_t* cInterface::sourceChunkPtr(const size_t pOffset) {
 			spBuffer buffer = chunk(pOffset);
 
 			return (buffer->data() + (pOffset % mSourceChunkSize));

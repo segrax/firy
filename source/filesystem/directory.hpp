@@ -4,13 +4,15 @@ namespace firy {
 		struct sDirectory : public sNode {
 			std::vector<spNode> mNodes;
 
-			sDirectory(wpFilesystem pFilesystem);
+			sDirectory(wpFilesystem pFilesystem, const std::string& pName = "");
 
 			virtual spNode getByName(const std::string& pName, const bool pCaseSensitive = false) override;
-			virtual spNode add(spNode pNode) {
+			virtual bool add(spNode pNode) {
 				mNodes.push_back(pNode);
-				mDirty = true;
-				return pNode;
+				mFilesystem.lock()->dirty();
+				dirty();
+
+				return mFilesystem.lock()->filesystemSave();
 			}
 		};
 	}

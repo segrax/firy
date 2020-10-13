@@ -25,6 +25,9 @@
     <Filter Include="Source Files\access">
       <UniqueIdentifier>{3f225a20-70c0-4f35-bd6e-96271b406656}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\helpers">
+      <UniqueIdentifier>{2e9e3e0c-988e-4cb8-9e4b-90d3ab5cdcd9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\firy.hpp">
@@ -77,6 +80,9 @@
     </ClInclude>
     <ClInclude Include="..\..\source\debug.hpp">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\helpers\dirty.hpp">
+      <Filter>Source Files\helpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

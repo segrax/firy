@@ -19,25 +19,37 @@ namespace firy {
 			return tokens;
 		}
 
-		sNode::sNode(wpFilesystem pFilesystem) {
+		/**
+		 *
+		 */
+		sNode::sNode(wpFilesystem pFilesystem, const std::string& pName) {
 			mFilesystem = pFilesystem;
-			mDirty = false;
+			mName = pName;
 		}
 
+		/**
+		 *
+		 */
 		spNode sNode::getByName(const std::string& pName, const bool pCaseSensitive) {
 			return 0;
 		}
 
-		sFile::sFile(wpFilesystem pFilesystem) : sNode(pFilesystem) {
+		sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sNode(pFilesystem, pName) {
 			mChainBroken = false;
 			mSizeInBytes = 0;
 		}
 
+		/**
+		 *
+		 */
 		spBuffer sFile::read() {
 			return mFilesystem.lock()->filesystemRead(shared_from_this());
 		}
 
-		sDirectory::sDirectory(wpFilesystem pFilesystem) : sNode(pFilesystem) {
+		/**
+		 *
+		 */
+		sDirectory::sDirectory(wpFilesystem pFilesystem, const std::string& pName) : sNode(pFilesystem, pName) {
 
 		}
 
@@ -52,7 +64,7 @@ namespace firy {
 						return node;
 
 				} else {
-					if (str_to_lower(node->mName) == str_to_lower(pName))
+					if (str_to_upper(node->mName) == str_to_upper(pName))
 						return node;
 				}
 			}

@@ -184,11 +184,11 @@ namespace firy {
 			 * Amiga: Representation of a file on a disk
 			 */
 			struct sFile : public sEntry, public filesystem::sFile {
-				sFile(wpFilesystem pFilesystem);
+				sFile(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
 
 			struct sDir : public sEntry, public filesystem::sDirectory {
-				sDir(wpFilesystem pFilesystem);
+				sDir(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
 
 			typedef std::shared_ptr<sFile> spFile;
@@ -204,7 +204,7 @@ namespace firy {
 			cADF(spSource pSource);
 
 			virtual std::string filesystemNameGet() const;
-			virtual bool filesystemPrepare();
+			virtual bool filesystemLoad();
 			virtual spBuffer filesystemRead(spNode pFile);
 
 			virtual size_t blockSize(const tBlock pBlock = 0) const;

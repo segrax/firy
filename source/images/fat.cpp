@@ -4,11 +4,11 @@
 namespace firy {
 	namespace images {
 
-		fat::sFile::sFile(wpFilesystem pFilesystem) : sEntry(), filesystem::sFile(pFilesystem) {
+		fat::sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sFile(pFilesystem, pName) {
 
 		}
 
-		fat::sDir::sDir(wpFilesystem pFilesystem) : sEntry(), filesystem::sDirectory(pFilesystem) {
+		fat::sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
 
 		}
 
@@ -77,7 +77,7 @@ namespace firy {
 		/**
 		 *
 		 */
-		bool cFAT::filesystemPrepare() {
+		bool cFAT::filesystemLoad() {
 			auto bootBlock = blockObjectGet<fat::sBootRecordBlock>(0);
 			if (!bootBlock)
 				return false;
@@ -296,7 +296,7 @@ namespace firy {
 				auto entry = entryLoad(Entry, LongEntries);
 				if (entry) {
 					if (typeid(*entry) == typeid(fat::sDir)) {
-						if (entry->mName == "." || entry->mName == "..")
+						if (entry->nameGet() == "." || entry->nameGet() == "..")
 							continue;
 						entrysLoad(std::dynamic_pointer_cast<fat::sDir>(entry));
 					}
@@ -321,13 +321,13 @@ namespace firy {
 				StartCluster |= ((uint32_t)pEntry->StartClusterHi) << 16;
 			}
 			if (pEntry->Attributes.directory) {
-				fat::spDir Dir = std::make_shared<fat::sDir>(weak_from_this());
+				auto Dir = filesystemFileCreate<fat::sDir>();
 				result = Dir;
 				entry = Dir.operator->();
 
 				Dir->mSizeInBytes = directorySectors(StartCluster) * blockSize();
 			} else {
-				fat::spFile File = std::make_shared<fat::sFile>(weak_from_this());
+				auto File = filesystemFileCreate<fat::sFile>();
 				result = File;
 				entry = File.operator->();
 
@@ -337,26 +337,31 @@ namespace firy {
 			entry->mFirstCluster = StartCluster;
 			entry->mBlock = clusterToBlock(StartCluster);
 
-			result->mName.append((const char*)pEntry->Name, 8);
-			result->mName = rtrim(result->mName, 0x20);	// Trim spaces
+			std::string name;
+
+			name.append((const char*)pEntry->Name, 8);
+			name = rtrim(name, 0x20);	// Trim spaces
 
 			std::string extension = "";
 			extension.append((const char*)pEntry->Extension, 3);
 			extension = rtrim(extension, 0x20);	// Trim spaces
 
 			if (!pEntry->Attributes.directory && !pEntry->Attributes.mLabel && extension.size()) {
-				result->mName.append(".");
+				name.append(".");
 			}
 
-			result->mName.append(extension);
+			name.append(extension);
 
+			// Is this the disk label?
 			if (pEntry->Attributes.mLabel) {
-				mLabel = result->mName;
+				mLabel = name;
 				return 0;;
 			}
 
+			result->nameSet(name);
+
 			if (pLongEntries.size()) {
-				entry->mShortName = result->mName;
+				entry->mShortName = result->nameGet();
 
 				std::sort(pLongEntries.begin(), pLongEntries.end(), [](const auto& lhs, const auto& rhs)
 					{
@@ -382,10 +387,11 @@ namespace firy {
 				char* mbstr = new char[size * 2];
 				wcstombs_s(&size, mbstr, size * 2, entry->mUnicodeName.data(), size);
 
-				result->mName = mbstr;
+				result->nameSet(mbstr);
 
 				pLongEntries.clear();
 			}
+			result->dirty(false);
 			return result;
 		}
 

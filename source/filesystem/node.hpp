@@ -1,15 +1,20 @@
 namespace firy {
 	namespace filesystem {
 
-		struct sNode : public std::enable_shared_from_this<sNode> {
-			wpFilesystem mFilesystem;
-			std::string mName;
-			bool mDirty;
+		struct sNode : public firy::helpers::cDirty, public std::enable_shared_from_this<sNode> {
+			friend struct sDirectory;
+			friend struct sFile;
 
-			virtual bool isDirty() const { return mDirty; }
-
-			sNode(wpFilesystem pFilesystem);
+			sNode(wpFilesystem pFilesystem, const std::string& pName = "");
 			virtual spNode getByName(const std::string& pName, const bool pCaseSensitive = false);
+		
+			inline std::string nameGet() const { return mName; }
+			inline void nameSet(const std::string pName) { mName = pName; dirty(); }
+
+		protected:
+			wpFilesystem mFilesystem;
+			wpNode mParent;
+			std::string mName;
 		};
 	}
 

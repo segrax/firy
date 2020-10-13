@@ -5,7 +5,7 @@ namespace firy {
 		/**
 		 * Provide function helpers to an underlying source
 		 */
-		class cInterface {
+		class cInterface : public virtual firy::helpers::cDirty {
 
 		public:
 			/**
@@ -17,6 +17,16 @@ namespace firy {
 				mSource = pSource;
 
 				assertSource();
+			}
+
+			/**
+			 * Save changes back to source
+			 */
+			bool sourceSave(const std::string pID = "") {
+				if (!mSource->save(pID))
+					return false;
+				dirty(false);
+				return true;
 			}
 
 		protected:
@@ -61,22 +71,34 @@ namespace firy {
 			 * Write to a chunk
 			 */
 			bool sourceBufferWrite(const size_t pOffset, const spBuffer pBuffer) {
-				return mSource->bufferWrite(pOffset, pBuffer);
+
+				if (!mSource->bufferWrite(pOffset, pBuffer))
+					return false;
+				dirty(true);
+				return true;
 			}
 
 			/**
-			 * Save changes back to source
+			 * Prepare chunks upto a specific size
+			 *
+			 * This would be used if you require a specific image size
+			 *  But dont want to adjust mSourceChunkSize to be a multiple of it
 			 */
-			bool sourceSave() {
-				return mSource->save();
+			bool sourceChunkPrepare(const size_t pSize) {
+
+				if (!mSource->chunkPrepare(pSize))
+					return false;
+				
+				dirty(true);
+				return true;
 			}
 
 			/**
 			 * Get a pointer to the chunk buffer
 			 * NOTE: This function is not safe, it will not cross the source chunk boundary
 			 */
-			uint8_t* chunkPtr(const size_t pOffset = 0) {
-				return mSource->chunkPtr(pOffset);
+			uint8_t* sourceChunkPtr(const size_t pOffset = 0) {
+				return mSource->sourceChunkPtr(pOffset);
 			}
 
 		protected:

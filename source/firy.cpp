@@ -19,6 +19,17 @@ namespace firy {
 	}
 
 	/**
+	 * Create a file as a source
+	 */
+	spSource cFiry::createLocalFile(const std::string& pFilename) {
+		auto file = std::make_shared<firy::sources::cFile>();
+		if (!file->create(pFilename)) {
+			return 0;
+		}
+		return file;
+	}
+
+	/**
 	 * Open a file as a source
 	 */
 	spSource cFiry::openLocalFile(const std::string& pFilename) {
@@ -37,12 +48,13 @@ namespace firy {
 		// Detect filetype
 		auto image = std::make_shared<tImageType>(firy::gFiry->openLocalFile(pFilename));
 
-		if (image->filesystemPrepare() == false && !pIgnoreValid) {
+		if (!image || image->filesystemLoad() == false && !pIgnoreValid) {
 			return 0;
 		}
 
 		return image;
 	}
+
 
 	/**
 	 *

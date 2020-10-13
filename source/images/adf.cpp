@@ -122,14 +122,14 @@ namespace firy {
 			/**
 			 * File inside an ADF
 			 */
-			sFile::sFile(wpFilesystem pFilesystem) : sEntry(), filesystem::sFile(pFilesystem) {
+			sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sFile(pFilesystem, pName) {
 
 			}
 
 			/**
 			 * Directory inside ADF
 			 */
-			sDir::sDir(wpFilesystem pFilesystem) : sEntry(), filesystem::sDirectory(pFilesystem) {
+			sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
 
 			}
 		}
@@ -176,7 +176,7 @@ namespace firy {
 		/**
 		 * Load the filesystem metadata
 		 */
-		bool cADF::filesystemPrepare() {
+		bool cADF::filesystemLoad() {
 			if (!blockBootLoad())
 				return false;
 			if (!blockRootLoad())
@@ -269,7 +269,7 @@ namespace firy {
 			entry->mType = blockEntry->secType;
 			entry->mParent = blockEntry->parent;
 
-			node->mName = std::string(blockEntry->name, min(blockEntry->nameLen, adf::MAXNAMELEN));
+			node->nameSet(std::string(blockEntry->name, min(blockEntry->nameLen, adf::MAXNAMELEN)));
 
 			adf::convertDaysToDate(blockEntry->days, &(entry->year), &(entry->month), &(entry->days));
 			entry->hour = blockEntry->mins / 60;
@@ -282,6 +282,7 @@ namespace firy {
 			if(blockEntry->secType == 2)
 				entrysLoad(std::dynamic_pointer_cast<adf::sDir>(node));
 
+			node->dirty(false);
 			return node;
 		}
 
@@ -327,7 +328,7 @@ namespace firy {
 					if (!blockFile->dataBlocks[index])
 						break;
 
-					auto block = chunkPtr(blockFile->dataBlocks[index] * blockSize());
+					auto block = sourceChunkPtr(blockFile->dataBlocks[index] * blockSize());
 					auto size = min(totalbytes, blockSize());
 					memcpy(destptr, block, size);
 					destptr += size;
@@ -346,7 +347,7 @@ namespace firy {
 						if (!blockExt->dataBlocks[index])
 							break;
 
-						auto block = chunkPtr(blockExt->dataBlocks[index] * blockSize());
+						auto block = sourceChunkPtr(blockExt->dataBlocks[index] * blockSize());
 						auto size = min(totalbytes, blockSize());
 						memcpy(destptr, block, size);
 						destptr += size;

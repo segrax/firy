@@ -12,6 +12,8 @@ namespace firy {
 	typedef size_t tSize;
 }
 
+#include "helpers/dirty.hpp"
+
 #include "debug.hpp"
 #include "buffer.hpp"
 
@@ -33,12 +35,6 @@ namespace firy {
 namespace firy {
 
 	extern std::shared_ptr<cResources> gResources;
-
-	inline void* bufferOffset(spBuffer pBuffer, const size_t& pBytes) {
-		if (pBytes > pBuffer->size())
-			return 0;
-		return pBuffer->data() + pBytes;
-	}
 
 	inline uint16_t readLEWord(const void* buffer) {
 		const uint16_t* wordBytes = (const uint16_t*)buffer;
@@ -64,7 +60,7 @@ namespace firy {
 		*wordBytes = pValue;
 	}
 
-	inline std::string str_to_lower(std::string pStr) {
+	inline std::string str_to_upper(std::string pStr) {
 		std::transform(pStr.begin(), pStr.end(), pStr.begin(), ::toupper);
 		return pStr;
 	}
@@ -95,9 +91,20 @@ namespace firy {
 	public:
 		cFiry();
 
+		spSource createLocalFile(const std::string& pFilename);
 		spSource openLocalFile(const std::string& pFilename);
 		spImage openImage(const std::string& pFilename);
 		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, const bool pIgnoreValid = false);
+		
+		template <class tImageType> std::shared_ptr<tImageType> createImageFile(const std::string& pFilename) {
+			auto image = std::make_shared<tImageType>(firy::gFiry->createLocalFile(pFilename));
+
+			if (!image || image->filesystemCreate() == false) {
+				return 0;
+			}
+
+			return image;
+		}
 
 	};
 

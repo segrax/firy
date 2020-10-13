@@ -6,7 +6,8 @@ namespace firy {
 		 */
 		class cImage : public virtual access::cInterface,
 					   public filesystem::cInterface,
-					   public std::enable_shared_from_this<cImage> {
+					   public std::enable_shared_from_this<cImage>,
+					   public virtual firy::helpers::cDirty {
 
 		public:
 
@@ -21,6 +22,16 @@ namespace firy {
 			 * Common file extensions
 			 */
 			virtual std::vector<std::string> imageExtensions() const = 0;
+
+			/**
+			 * Create a file attached to this filesystem
+			 */
+			template <class tType, class ...Args> std::shared_ptr<tType> filesystemFileCreate(const std::string& pName = "", ...) {
+				auto res = std::make_shared<tType>(weak_from_this(), pName, Args...);
+				res->dirty(true);
+				return res;
+			}
+
 		};
 
 		/**
@@ -41,6 +52,4 @@ namespace firy {
 	}
 
 	typedef std::shared_ptr<images::cImage> spImage;
-	template <class tImageType>
-		using spImageType = std::shared_ptr<tImageType>;
 }

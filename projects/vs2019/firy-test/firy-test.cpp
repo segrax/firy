@@ -43,7 +43,7 @@ bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::str
 template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
 
 	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::gFiry->openLocalFile(pImage));
-	img->filesystemPrepare();
+	img->filesystemLoad();
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
 
@@ -53,16 +53,10 @@ inline bool ends_with(std::string const& value, std::string const& ending)
 	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
-bool testImageFile(const std::string pImageFile) {
+bool testImage(firy::spImage pImage) {
 	static auto raws = firy::gResources->directoryList(firy::gResources->getcwd() + "/_raw", "");
 
-	auto image = firy::gFiry->openImage(pImageFile);
-	if (!image) {
-		std::cout << " Failed to detect image type\n";
-		return false;;
-	}
-
-	if (image->filesystemNameGet() != "FIRY TEST DISK" && image->filesystemNameGet() != "FIRY TEST D") {
+	if (pImage->filesystemNameGet() != "FIRY TEST DISK" && pImage->filesystemNameGet() != "FIRY TEST D") {
 		std::cout << " Disk label fail\n";
 	}
 
@@ -73,7 +67,7 @@ bool testImageFile(const std::string pImageFile) {
 		auto filenameIndex = raw.find_last_of("\\");
 		std::string filename = raw.substr(filenameIndex + 1);
 
-		auto file = image->filesystemFile(filename);
+		auto file = pImage->filesystemFile(filename);
 		if (!file) {
 			std::cout << " FAILED: file: " << filename << " not found\n";
 			return false;
@@ -87,6 +81,15 @@ bool testImageFile(const std::string pImageFile) {
 		}
 	}
 	return true;
+}
+
+bool testImageFile(const std::string& pImageFile) {
+	auto image = firy::gFiry->openImage(pImageFile);
+	if (!image) {
+		std::cout << " Failed to detect image type\n";
+		return false;;
+	}
+	return testImage(image);
 }
 
 bool testImages() {
@@ -110,20 +113,71 @@ bool testImages() {
 	return result;
 }
 
+/**
+ * Create an image, and inject all raw files
+ */
+template <class tType> auto createTestImage_InjectRaws() {
+	static auto raws = firy::gResources->directoryList(firy::gResources->getcwd() + "/_raw", "");
+
+	auto d64 = firy::gFiry->createImageFile<tType>("");
+	d64->filesystemNameSet("FIRY TEST DISK");
+
+	// Loop each file found in the raw folder
+	for (auto raw : raws) {
+
+		auto filenameIndex = raw.find_last_of("\\");
+		std::string filename = raw.substr(filenameIndex + 1);
+
+		auto file = d64->filesystemFileCreate(filename);
+		file->mContent = firy::gResources->FileRead(raw);
+		if (!d64->filesystemPath()->add(file)) {
+			std::cout << "Failed to add file: " << filename << "\n";
+		}
+	}
+
+	if (!d64->filesystemLoad()) {
+		std::cout << "Failed\n";
+	}
+	return d64;
+}
+
 int main()
 {
+	auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
+	testImage(newImage);
+
 	//testImages();
-
 	auto D64 = firy::gFiry->openImageFile<firy::images::cD64>("test_35tracks.d64");
-	
-	return 0;
+	auto path = D64->filesystemPath();
 
-	auto image = firy::gFiry->openImage("mine/Win98.img");
-	auto path = image->filesystemPath("/");
+	//auto a = std::make_shared<firy::images::d64::sFile>(D64->weak_from_this(), "TEST");
+	/*auto file = D64->filesystemFileCreate<firy::images::d64::sFile>(std::string("otherfile"));
+	file->mContent = firy::gResources->FileRead("otherfile");
+	file->mType = firy::images::d64::eFileType_PRG;
+
+	path->add(file);
+	D64->sourceSave();*/
+
+	auto file2 = D64->filesystemFile("/otherfile");
+	auto aa = file2->read();
 
 	if (path) {
 		for (auto& entry : path->mNodes) {
-			std::cout << entry->mName << "\n";
+			std::cout << entry->nameGet() << "\n";
+		}
+	}
+
+
+	// TODO:
+
+	return 0;
+
+	auto image = firy::gFiry->openImage("mine/Win98.img");
+	path = image->filesystemPath();
+
+	if (path) {
+		for (auto& entry : path->mNodes) {
+			std::cout << entry->nameGet() << "\n";
 		}
 	}
 
@@ -154,7 +208,7 @@ int main()
 		std::cout << "Label: " << adf->filesystemNameGet() << "\n";
 
 		for (auto& entry : path->mNodes) {
-			std::cout << entry->mName << "\n";
+			std::cout << entry->nameGet() << "\n";
 		}
 
 		auto file = adf->filesystemFile("/S/startup-sequence");
@@ -165,12 +219,12 @@ int main()
 
 	{
 		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("mine/Microsoft.MS-DOS.6.2.Upgrade.1of3.img"));
-		FAT->filesystemPrepare();
+		FAT->filesystemLoad();
 		auto path = FAT->filesystemPath("/");
 
 		if (path) {
 			for (auto& entry : path->mNodes) {
-				std::cout << entry->mName << "\n";
+				std::cout << entry->nameGet() << "\n";
 			}
 		}
 		auto file = FAT->filesystemFile("/SCANDISK.EXE");
@@ -178,12 +232,12 @@ int main()
 	}
 	{
 		std::shared_ptr<firy::images::cFAT> FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("mine/EA_Engine_Assy.img"));
-		FAT->filesystemPrepare();
+		FAT->filesystemLoad();
 		auto path = FAT->filesystemPath("/");
 
 		if (path) {
 			for (auto& entry : path->mNodes) {
-				std::cout << entry->mName << "\n";
+				std::cout << entry->nameGet() << "\n";
 			}
 		}
 		//DumpImageBlocksFree<firy::images::cFAT>("Prince.of.Persia.2.1of4.img", "d:\\blocks", "prince2");
@@ -207,12 +261,12 @@ int main()
 
 	{
 		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("mine/Win98.img"));
-		FAT->filesystemPrepare();
+		FAT->filesystemLoad();
 		auto path = FAT->filesystemPath("/");
 
 		if (path) {
 			for (auto& entry : path->mNodes) {
-				std::cout << entry->mName << "\n";
+				std::cout << entry->nameGet() << "\n";
 			}
 		}
 				auto file = FAT->filesystemFile("/scandisk.log");

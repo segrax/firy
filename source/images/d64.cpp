@@ -8,13 +8,14 @@ namespace firy {
 			/**
 			 * Maximum number of bytes which can be stored in a block
 			 */
-			const size_t gBytesPerSector = 254;
+			const size_t gDataBytesPerSector = 254;
 
 			/**
 			 * D64File Constructor
 			 */
-			sFile::sFile(wpFilesystem pFilesystem) : filesystem::sFile(pFilesystem) {
-				mType = eFileType_DEL;
+			sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : filesystem::sFile(pFilesystem, pName) {
+				mType = eFileType_PRG;
+				mFlags = eFileFlag_CLOSED;
 				mSizeInSectors = 0;
 			}
 		}
@@ -36,11 +37,45 @@ namespace firy {
 		}
 
 		/**
+		 * 
+		 */
+		void cD64::filesystemNameSet(const std::string& pName) {
+			mLabel = pName;
+		}
+
+		/**
+		 * Create an empty filesystem
+		 */
+		bool cD64::filesystemCreate() {
+			mFsRoot = std::make_shared<firy::filesystem::sDirectory>(weak_from_this(), "/");
+
+			sourceChunkPrepare(174848);
+			mDosVersion = 0x21;
+			mDiskID = 'FI';
+			mDosType = '2A';
+			mLabel = "";
+
+			tTrackSector ts = { 1, 4 };
+			mBam.clear();
+			for (; ts.first < 35; ++ts.first) {
+				d64::sTrackBam bam;
+				mBam.push_back(bam);
+			}
+			for (ts.first = 1; ts.first < 35; ++ts.first) {
+				for (ts.second = 0; ts.second < sectorCount(ts.first); ++ts.second) {
+					sectorSet(ts, false);
+				}
+			}
+
+			filesystemBitmapSave();
+			return filesystemBitmapLoad();
+		}
+
+		/**
 		 * Load the D64 directory
 		 */
-		bool cD64::filesystemPrepare() {
-			mFsRoot = std::make_shared<firy::filesystem::sDirectory>(weak_from_this());
-			mFsRoot->mName = "/";
+		bool cD64::filesystemLoad() {
+			mFsRoot = std::make_shared<firy::filesystem::sDirectory>(weak_from_this(), "/");
 
 			// Loop until we reach the end of the directory
 			tTrackSector ts(18, 1);
@@ -71,10 +106,10 @@ namespace firy {
 		}
 
 		/**
-			* Load a file off the D64
-			*/
+		 * Load a file off the D64
+		 */
 		spBuffer cD64::filesystemRead(spNode pNode) {
-			uint16_t bytesCopied = 0, copySize = d64::gBytesPerSector;
+			uint16_t bytesCopied = 0, copySize = d64::gDataBytesPerSector;
 			d64::spFile File = std::dynamic_pointer_cast<d64::sFile>(pNode);
 			if (!File)
 				return 0;
@@ -90,7 +125,7 @@ namespace firy {
 			for (auto& ts : File->mChain) {
 				bool noCopy = false;
 
-				uint8_t* sectorptr = chunkPtr(sectorOffset(ts));
+				uint8_t* sectorptr = sourceChunkPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					File->mChainBroken = true;
 					return buffer;
@@ -105,7 +140,7 @@ namespace firy {
 					// Bytes used by the final sector stored in the T/S chain sector value
 					copySize = (uint16_t)(sectorptr[1] - 1);
 					// Adjust bufer size to match the final file size
-					buffer->resize(buffer->size() - (d64::gBytesPerSector - copySize));
+					buffer->resize(buffer->size() - (d64::gDataBytesPerSector - copySize));
 				}
 
 				// Copy sector data, excluding the T/S Chain data
@@ -120,14 +155,6 @@ namespace firy {
 			return buffer;
 		}
 
-		/**
-		 * Add a node
-		 */
-		spNode cD64::filesystemAdd(spNode pFile) {
-
-			return mFsRoot->add(pFile);
-		}
-		
 		/**
 		 * Find a free space in the directory index
 		 */
@@ -145,81 +172,100 @@ namespace firy {
 					auto file = filesystemEntryLoad(sectorBuffer, i * 0x20);
 					if (!file) {
 						pFile->mDirIndex.mTS = ts;
-						pFile->mDirIndex.mOffset = i * 20;
+						pFile->mDirIndex.mOffset = i * 0x20;
 						return pFile;
 					}
 				}
+
+				// Reached end of directory?
+				tTrackSector tsnext = { sectorBuffer->getByte(0), sectorBuffer->getByte(1) };
+				if (tsnext.first == 0 || tsnext.second == 0) {
+					tsnext.first = 18;
+					tsnext.second = ts.second + 3;
+
+					sectorBuffer->putByte(0, (uint8_t)tsnext.first);
+					sectorBuffer->putByte(1, (uint8_t)tsnext.second);
+					sectorWrite(ts, sectorBuffer);
+				}
+
+				ts = tsnext;
 			}
 			// Directory full
 			return 0;
 		}
 
 		/**
-		 *
+		 * Save changes to the filesystem
 		 */
 		bool cD64::filesystemSave() { 
-
 			for (auto node : mFsRoot->mNodes) {
 				auto file = std::dynamic_pointer_cast<d64::sFile>(node);
+				if (!file->isDirty())
+					continue;
 
-				if (file->isDirty()) {
-
-					// Totally new file?
-					if (file->mDirIndex.mTS.first == 0) {
-
-						if (!filesystemFindFreeIndex(file)) {
-							// No space in directory
-							return false;
-						}
+				// Totally new file?
+				if (file->mDirIndex.mTS.first == 0) {
+					if (!filesystemFindFreeIndex(file)) {
+						// No space in directory
+						return false;
 					}
-					// If we have content
-					if (file->mContent.size()) {
-						auto sectorCount = file->mContent.size() / sectorSize();
+				}
+				// If we have content
+				if (file->mContent->size()) {
+					auto sectorCount = file->mContent->size() / d64::gDataBytesPerSector;
+					if (file->mContent->size() % d64::gDataBytesPerSector)
+						++sectorCount;
 
-						// 2 bytes for T/S on every sector
-						sectorCount = ((file->mContent.size() + 2) * sectorCount) / sectorSize();
-
-						// Do we need more sectors?
-						if (file->mSizeInSectors != sectorCount) {
+					// Do we need more sectors?
+					if (file->mSizeInSectors != sectorCount) {
 							
-							if (file->mChain.size() >= 1) {
-								sectorsFree(file->mChain);
-								file->mChain.clear();
-							}
-
-							file->mChain = sectorsUse(sectorCount);
+						if (file->mChain.size() >= 1) {
+							sectorsFree(file->mChain);
+							file->mChain.clear();
 						}
 
-						file->mSizeInSectors = sectorCount;
-						file->mSizeInBytes = file->mContent.size();
-
-						for (size_t index = 0; index < file->mChain.size(); ++index ) {
-							auto& ts = file->mChain[index];
-							tTrackSector tsnext;
-							
-							// Final sector?
-							if(index < (file->mChain.size() - 1))
-								tsnext = file->mChain[index + 1];
-							else {
-								tsnext = { 0, file->mContent.size() % sectorSize() };
-							}
-
-							spBuffer buffer = std::make_shared<tBuffer>();
-							buffer->pushByte((uint8_t)tsnext.first);
-							buffer->pushByte((uint8_t)tsnext.second);
-							buffer->pushBuffer(file->mContent.takeBytes(d64::gBytesPerSector - 2));
-							sectorWrite(ts, buffer);
-						}
+						file->mChain = sectorsUse(sectorCount);
 					}
 
+					if (file->mChain.size() == 0) {
+						gDebug->error("No disk space");
+						continue;
+					}
 
-					filesystemEntrySave(file);
-					filesystemBitmapSave();
-					// Update bam
+					file->mSizeInSectors = sectorCount;
+					file->mSizeInBytes = file->mSizeInSectors * (sectorSize() - 2);
+
+					// Write out each sector in the chain
+					for (size_t index = 0; index < file->mChain.size(); ++index ) {
+						auto& ts = file->mChain[index];
+						tTrackSector tsnext;
+							
+						// Final sector?
+						if(index < (file->mChain.size() - 1))
+							tsnext = file->mChain[index + 1];
+						else {
+							tsnext = { 0, file->mContent->size() + 1 };
+						}
+
+						spBuffer buffer = std::make_shared<tBuffer>();
+						buffer->pushByte((uint8_t)tsnext.first);
+						buffer->pushByte((uint8_t)tsnext.second);
+						buffer->pushBuffer(file->mContent->takeBytes(d64::gDataBytesPerSector < file->mContent->size() ? d64::gDataBytesPerSector : file->mContent->size() ));
+						sectorWrite(ts, buffer);
+					}
 				}
 
+				if (!filesystemEntrySave(file)) {
+					return false;
+				}
+				file->dirty(false);
 			}
 
+			if (!filesystemBitmapSave()) {
+				return false;
+			}
+
+			dirty(false);
 			return true;
 		}
 
@@ -238,7 +284,7 @@ namespace firy {
 		}
 
 		/**
-		 * Get all free sectors
+		 * Is a sector free
 		 *
 		 * Ideally this would return in a 1541 drive read friendly manner
 		 * Which is each sector used in a file is seperated by 10 sectors
@@ -251,7 +297,7 @@ namespace firy {
 		}
 
 		/**
-		 * Set a sector used/free
+		 * Set a sector used (True == used)
 		 */
 		bool cD64::sectorSet(const tTrackSector pTS, const bool pValue) {
 			if (pTS.first - 1 >= mBam.size())
@@ -259,11 +305,13 @@ namespace firy {
 			auto& Track = mBam[pTS.first - 1];
 			auto bit = (1 << pTS.second);
 
-			if (pValue) {
+			if (!pValue) {
+				++Track.mFreeSectors;
 				Track.mSectors |= bit;
 				return true;
 			}
 
+			--Track.mFreeSectors;
 			Track.mSectors &= (~bit);
 			return true;
 		}
@@ -275,7 +323,7 @@ namespace firy {
 			std::vector<tTrackSector> results;
 			tTrackSector TS = { 1, 0 };
 
-			for (++TS.first; TS.first < trackCount(); ++TS.first) {
+			for (; TS.first < trackCount(); ++TS.first) {
 				for (TS.second = 0; TS.second < sectorCount(TS.first); ++TS.second) {
 					if (sectorIsFree(TS)) {
 						if (!sectorSet(TS, true)) {
@@ -283,10 +331,15 @@ namespace firy {
 							return results;
 						}
 						results.push_back(TS);
+						if (results.size() >= pTotal)
+							return results;
 					}
 				}
 			}
-			return results;
+
+			gDebug->error("Not enough free blocks");
+			sectorsFree(results);
+			return {};
 		}
 
 		/**
@@ -346,7 +399,7 @@ namespace firy {
 				//} else
 				//	mBamRealTracks[currentTrack][currentSector] = pFile;
 
-				uint8_t* sectorptr = chunkPtr(sectorOffset(ts));
+				uint8_t* sectorptr = sourceChunkPtr(sectorOffset(ts));
 				if (!sectorptr) {
 					file->mChainBroken = true;
 					return false;
@@ -367,6 +420,7 @@ namespace firy {
 				return false;
 
 			mDosVersion = block->getByte(0x02);
+			mDiskID = block->getWordBE(0xA2);
 			mDosType = block->getWordBE(0xA5);
 
 			mLabel = block->getString(0x90, 16, 0xA0); 
@@ -407,6 +461,8 @@ namespace firy {
 				return false;
 
 			block->putByte(0x02, mDosVersion);
+			block->putWordBE(0xA2, mDiskID);
+			block->putByte(0xA4, 0xA0);
 			block->putWordBE(0xA5, mDosType);
 
 			auto str = mLabel;
@@ -421,52 +477,59 @@ namespace firy {
 				block->putByte(ts.second++, bam.mSectors >> 8);
 				block->putByte(ts.second++, bam.mSectors >> 16);
 			}
-			return true;
+
+			return sectorWrite({ 18,0 }, block);
 		}
 
 		/**
-		 *
+		 * Load a file from the sector buffer
 		 */
 		d64::spFile cD64::filesystemEntryLoad(spBuffer pBuffer, const size_t pOffset) {
 			d64::spFile file = std::make_shared<d64::sFile>(weak_from_this());
 
 			// Get the filetype
 			file->mType = (d64::eFileType)(pBuffer->getByte(pOffset + 0x02) & 0x0F);
+			file->mFlags = (pBuffer->getByte(pOffset + 0x02) & 0xF0);
 
 			// Get the filename
-			file->mName = pBuffer->getString(pOffset + 0x05, 16, 0xA0);
-			if (file->mName.size() == 0) {
-				return 0;
-			}
+			file->nameSet(pBuffer->getString(pOffset + 0x05, 16, 0xA0));
 
 			// Get the starting Track/Sector
 			file->mChain.emplace_back( pBuffer->getByte(pOffset + 0x03), pBuffer->getByte(pOffset + 0x04));
 
+			if (file->mChain[0].first == 0) {
+				return 0;
+			}
 			// Total number of blocks
 			file->mSizeInSectors = pBuffer->getWordLE(pOffset + 0x1E);
 			file->mSizeInBytes = file->mSizeInSectors * (sectorSize() - 2);
-
+			file->dirty(false);
 			return file;
 		}
 
 		/**
-		 *
+		 * Save a file to the sector buffer
 		 */
 		bool cD64::filesystemEntrySave(d64::spFile pFile) {
 			auto sectorBuffer = sectorRead(pFile->mDirIndex.mTS);
 			auto offset = pFile->mDirIndex.mOffset;
 
-			sectorBuffer->putByte(offset + 0x02, pFile->mType);
+			// 
+			sectorBuffer->putByte(offset + 0x02, pFile->mFlags | pFile->mType);
 
-			auto str = pFile->mName;
+			auto str = str_to_upper(pFile->nameGet());
 			str.resize(16, (char) 0xA0);
 			sectorBuffer->putString(offset + 0x05, str);
 
 			sectorBuffer->putByte(offset + 0x03, (uint8_t)pFile->mChain[0].first);
 			sectorBuffer->putByte(offset + 0x04, (uint8_t)pFile->mChain[0].second);
 
-			sectorBuffer->putWordLE(offset + 0x1E, pFile->mSizeInSectors);
-			return sectorWrite(pFile->mDirIndex.mTS, sectorBuffer);
+			sectorBuffer->putWordLE(offset + 0x1E, (uint16_t)pFile->mSizeInSectors);
+			if (!sectorWrite(pFile->mDirIndex.mTS, sectorBuffer))
+				return false;
+
+			pFile->dirty(false);
+			return true;
 		}
 	}
 }

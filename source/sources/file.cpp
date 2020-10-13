@@ -13,7 +13,15 @@ namespace firy {
 		}
 
 		/**
-		 * Open an image
+		 * Create a file
+		 */
+		bool cFile::create(const std::string pFile) {
+			mCreating = true;
+			return !open(pFile);
+		}
+
+		/**
+		 * Open a file
 		 */
 		bool cFile::open(const std::string pFile) {
 			mFilename = pFile;
@@ -36,11 +44,17 @@ namespace firy {
 				if (buffer.second->isDirty()) {
 					size_t offset = buffer.first * mSourceChunkSize;
 					if (!gResources->FileWrite(mFilename, offset, buffer.second)) {
+
+						if (mCreating) {
+							if (gResources->FileSave(mFilename, buffer.second))
+								continue;
+						}
 						gDebug->error("Failed to save: ", mFilename);
 						return false;
 					}
 				}
 			}
+			dirty(false);
 			return true;
 
 		}
@@ -60,9 +74,15 @@ namespace firy {
 			size_t offset = pOffset % mSourceChunkSize;
 
 			if (mBuffers.find(index) == mBuffers.end()) {
+
 				auto chunk = gResources->FileRead(mFilename, pOffset - offset, mSourceChunkSize);
-				if (!chunk->size())
-					return 0;
+				if (!chunk->size()) {
+					if (!mCreating)
+						return 0;
+
+					chunk = std::make_shared<tBuffer>();
+					chunk->resize(mSourceChunkSize);
+				}
 
 				mBuffers.insert({ index, chunk });
 				return chunk;

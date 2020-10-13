@@ -75,13 +75,14 @@ namespace firy {
 	}
 
 	bool cResources::FileWrite(const std::string& pFile, const size_t pOffset, spBuffer pBuffer) {
-		std::ofstream outfile(pFile, std::ofstream::binary | std::ofstream::app);
+		std::ofstream outfile(pFile, std::ios::in | std::ios::out | std::ofstream::binary);
 		if (!outfile.is_open())
 			return false;
 		outfile.seekp(pOffset, std::ios::beg);
 		outfile.write((const char*)pBuffer->data(), pBuffer->size());
 		outfile.close();
 		pBuffer->dirty(false);
+		return true;
 	}
 
 	bool cResources::FileSave(const std::string& pFile, const std::string& pData) {

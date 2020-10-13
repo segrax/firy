@@ -1,6 +1,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include "helpers/dirty.hpp"
 #include "buffer.hpp"
 
 namespace firy {
@@ -34,6 +35,14 @@ namespace firy {
 	inline void cBuffer::assertOffset(const size_t pOffset, const size_t pBytes) const {
 		if ((pOffset + pBytes) > size())
 			throw std::exception("Read past end of buffer");
+	}
+
+	inline void cBuffer::expandOffset(const size_t pOffset, const size_t pBytes) {
+		size_t newSize = pOffset + pBytes;
+		if (newSize <= size())
+			return;
+
+		resize(newSize);
 	}
 
 	/**
@@ -114,27 +123,27 @@ namespace firy {
 	}
 
 	void cBuffer::putByte(const size_t pOffset, uint8_t pByte) {
-		assertOffset(pOffset);
+		expandOffset(pOffset);
 		dirty(true);
 		at(pOffset) = pByte;
 	}
 
 	void cBuffer::putWordLE(const size_t pOffset, uint16_t pByte) {
-		assertOffset(pOffset, 2);
+		expandOffset(pOffset, 2);
 		dirty(true);
 		uint16_t* bytes = reinterpret_cast<uint16_t*>(&at(pOffset));
 		*bytes = pByte;
 	}
 
 	void cBuffer::putDWordLE(const size_t pOffset, uint32_t pByte) {
-		assertOffset(pOffset, 4);
+		expandOffset(pOffset, 4);
 		dirty(true);
 		uint32_t* bytes = reinterpret_cast<uint32_t*>(&at(pOffset));
 		*bytes = pByte;
 	}
 
-	void cBuffer::putWordBE(const size_t pOffset, uint8_t pByte) {
-		assertOffset(pOffset, 2);
+	void cBuffer::putWordBE(const size_t pOffset, uint16_t pByte) {
+		expandOffset(pOffset, 2);
 		dirty(true);
 		uint8_t* bytes = reinterpret_cast<uint8_t*>(&at(pOffset));
 		bytes[0] = pByte >> 8;
@@ -142,7 +151,7 @@ namespace firy {
 	}
 
 	void cBuffer::putDWordBE(const size_t pOffset, uint32_t pByte) {
-		assertOffset(pOffset, 4);
+		expandOffset(pOffset, 4);
 		dirty(true);
 		uint8_t* bytes = reinterpret_cast<uint8_t*>(&at(pOffset));
 		bytes[0] = pByte >> 24;
@@ -152,16 +161,16 @@ namespace firy {
 	}
 
 	void cBuffer::putBuffer(const size_t pOffset, std::shared_ptr<cBuffer> pBuffer) {
-		assertOffset(pOffset, pBuffer->size());
+		expandOffset(pOffset, pBuffer->size());
 		dirty(true);
-		auto buf = data();
+		auto buf = data() + pOffset;
 		memcpy(buf, pBuffer->data(), pBuffer->size());
 	}
 
 	void cBuffer::putString(const size_t pOffset, const std::string& pBuffer) {
-		assertOffset(pOffset, pBuffer.size());
+		expandOffset(pOffset, pBuffer.size());
 		dirty(true);
-		auto buf = data();
+		auto buf = data() + pOffset;
 		memcpy(buf, pBuffer.data(), pBuffer.size());
 	}
 
@@ -180,13 +189,27 @@ namespace firy {
 	 */
 	bool cBuffer::write(const size_t pOffset, const spBuffer pBuffer) {
 		//assertOffset(pOffset, pBuffer->size());
-		size_t maxSize = pOffset - size();
+		size_t maxSize = size() - pOffset;
 		if (maxSize < pBuffer->size())
 			return false;
 
 		dirty(true);
 
-		memcpy(&at(pOffset), pBuffer->data(), maxSize);
+		memcpy(&at(pOffset), pBuffer->data(), pBuffer->size());
+		return true;
+	}
+
+	bool cBuffer::write(const size_t pOffset, const spBuffer pBuffer, const size_t pOffsetStart, const size_t pSize) {
+		size_t maxSize = size() - pOffset;
+		if (maxSize < pBuffer->size())
+			return false;
+
+		if (pBuffer->size() - pOffsetStart < pSize) {
+			return false;
+		}
+
+		memcpy(&at(pOffset), pBuffer->data() + pOffsetStart, pSize);
+		dirty(true);
 		return true;
 	}
 

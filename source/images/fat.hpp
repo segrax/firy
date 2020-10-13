@@ -168,13 +168,13 @@ namespace firy {
 			struct sFile : public sEntry, public filesystem::sFile {
 				size_t mSizeInSectors;
 
-				sFile(wpFilesystem pFilesystem);
+				sFile(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
 
 			struct sDir : public sEntry, public filesystem::sDirectory {
 				size_t mSizeInBytes;
 
-				sDir(wpFilesystem pFilesystem);
+				sDir(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
 
 			typedef std::shared_ptr<sFile> spFile;
@@ -191,7 +191,7 @@ namespace firy {
 			cFAT(spSource pSource);
 
 			virtual std::string filesystemNameGet() const;
-			virtual bool filesystemPrepare();
+			virtual bool filesystemLoad();
 			virtual spBuffer filesystemRead(spNode pFile);
 
 			virtual bool partitionOpen(int pNumber);
