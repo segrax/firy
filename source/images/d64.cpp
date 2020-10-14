@@ -156,6 +156,20 @@ namespace firy {
 		}
 
 		/**
+		 * Remove a node from the filesystem
+		 */
+		bool cD64::filesystemRemove(spNode pNode) {
+			auto file = std::dynamic_pointer_cast<d64::sFile>(pNode);
+
+			file->dirty();
+			file->mType = d64::eFileType_DEL;
+			file->mSizeInSectors = 0;
+			sectorsFree(file->mChain);
+			file->mChain.clear();
+			return filesystemSave();
+		}
+
+		/**
 		 * Find a free space in the directory index
 		 */
 		d64::spFile cD64::filesystemFindFreeIndex(d64::spFile pFile) {
@@ -306,12 +320,14 @@ namespace firy {
 			auto bit = (1 << pTS.second);
 
 			if (!pValue) {
-				++Track.mFreeSectors;
+				if(!(Track.mSectors & bit))
+					++Track.mFreeSectors;
 				Track.mSectors |= bit;
 				return true;
 			}
 
-			--Track.mFreeSectors;
+			if ((Track.mSectors & bit))
+				--Track.mFreeSectors;
 			Track.mSectors &= (~bit);
 			return true;
 		}
@@ -330,6 +346,8 @@ namespace firy {
 							gDebug->error("invalid sector");
 							return results;
 						}
+
+						// Do we have enough?
 						results.push_back(TS);
 						if (results.size() >= pTotal)
 							return results;
@@ -345,7 +363,7 @@ namespace firy {
 		/**
 		 * Free sectors
 		 */
-		bool cD64::sectorsFree(const std::vector<tTrackSector> pSectors) {
+		bool cD64::sectorsFree(const std::vector<tTrackSector>& pSectors) {
 
 			for (auto sector : pSectors) {
 				if (!sectorSet(sector, false))

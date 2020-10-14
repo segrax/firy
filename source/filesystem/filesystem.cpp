@@ -34,6 +34,17 @@ namespace firy {
 			return 0;
 		}
 
+		/**
+		 * Remove
+		 */
+		bool sNode::remove() {
+			mFilesystem.lock()->filesystemRemove(shared_from_this());
+			return mFilesystem.lock()->filesystemSave();
+		}
+
+		/**
+		 *
+		 */
 		sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sNode(pFilesystem, pName) {
 			mChainBroken = false;
 			mSizeInBytes = 0;

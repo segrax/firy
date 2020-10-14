@@ -44,6 +44,11 @@ namespace firy {
 			virtual bool sectorIsFree(const tTrackSector pTS) const = 0;
 
 			/**
+			 * Set a T/S used
+			 */
+			virtual bool sectorSet(const tTrackSector pTS, const bool pValue) = 0;
+
+			/**
 			 * Get 'pTotal' number of free sectors, marking them used
 			 */
 			virtual std::vector<tTrackSector> sectorsUse(const tSector pTotal) = 0;
@@ -51,7 +56,7 @@ namespace firy {
 			/**
 			 * Free all sectors in 'pSectors'
 			 */
-			virtual bool sectorsFree(const std::vector<tTrackSector> pSectors) = 0;
+			virtual bool sectorsFree(const std::vector<tTrackSector>& pSectors) = 0;
 
 			/**
 			 * Get the free sectors on a track

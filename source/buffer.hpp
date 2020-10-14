@@ -22,6 +22,7 @@ namespace firy {
 		void pushWord(const uint16_t pWord);
 		void pushDWord(const uint32_t pDWord);
 		void pushBuffer(std::shared_ptr<cBuffer> pBuffer);
+		void pushBuffer(const uint8_t* pBuffer, const size_t pSize);
 
 		void putByte(const size_t pOffset, uint8_t pByte);
 		void putWordLE(const size_t pOffset, uint16_t pByte);
@@ -38,6 +39,7 @@ namespace firy {
 
 		bool write(const size_t pOffset, const spBuffer pBuffer);
 		bool write(const size_t pOffset, const spBuffer pBuffer, const size_t pOffsetStart, const size_t pSize);
+		bool write(const size_t pOffset, const uint8_t* pBuffer, const size_t pSize);
 
 		void resize(const size_type pNewSize) {
 			std::vector<uint8_t>::resize(pNewSize);

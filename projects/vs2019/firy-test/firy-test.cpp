@@ -11,7 +11,7 @@
 
 bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::string& pBaseFileName) {
 
-	for (auto& block : pDisk->blocksFree()) {
+	for (auto& block : pDisk->blocksGetFree()) {
 		auto data = pDisk->blockRead(block);
 		if (!data) {
 
@@ -143,20 +143,23 @@ template <class tType> auto createTestImage_InjectRaws() {
 
 int main()
 {
-	auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
-	testImage(newImage);
+	//auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
+	//auto newImage = createTestImage_InjectRaws<firy::images::cADF>();
+	//testImage(newImage);
 
 	//testImages();
-	auto D64 = firy::gFiry->openImageFile<firy::images::cD64>("test_35tracks.d64");
+	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("testdisk.adf");
 	auto path = D64->filesystemPath();
 
 	//auto a = std::make_shared<firy::images::d64::sFile>(D64->weak_from_this(), "TEST");
-	/*auto file = D64->filesystemFileCreate<firy::images::d64::sFile>(std::string("otherfile"));
+	auto file = D64->filesystemFileCreate("otherfile");
 	file->mContent = firy::gResources->FileRead("otherfile");
-	file->mType = firy::images::d64::eFileType_PRG;
 
 	path->add(file);
-	D64->sourceSave();*/
+
+	D64->filesystemLoad();
+
+	D64->sourceSave();
 
 	auto file2 = D64->filesystemFile("/otherfile");
 	auto aa = file2->read();

@@ -3,15 +3,15 @@
 
 namespace firy {
 	namespace images {
+		namespace fat {
+			sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sFile(pFilesystem, pName) {
 
-		fat::sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sFile(pFilesystem, pName) {
+			}
 
+			sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
+
+			}
 		}
-
-		fat::sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
-
-		}
-
 
 		cFAT::cFAT(spSource pSource) : cImageAccess<access::cBlocks>(), access::cInterface(pSource) {
 
@@ -408,6 +408,10 @@ namespace firy {
 			return buffer;
 		}
 
+		bool cFAT::filesystemRemove(spNode pFile) {
+			return false;
+		}
+
 		/**
 		 *
 		 */
@@ -441,9 +445,30 @@ namespace firy {
 		}
 
 		/**
+		 *
+		 */
+		bool cFAT::blockSet(const tBlock pBlock, const bool pValue) {
+			return false;
+		}
+
+		/**
+		 *
+		 */
+		std::vector<tBlock> cFAT::blockUse(const tBlock pTotal) {
+			return {};
+		}
+
+		/**
+		 *
+		 */
+		bool cFAT::blocksFree(const std::vector<tBlock>& pBlocks) {
+			return false;
+		}
+
+		/**
 		 * Return free clusters
 		 */
-		std::vector<tBlock> cFAT::blocksFree() const {
+		std::vector<tBlock> cFAT::blocksGetFree() const {
 			std::vector<tBlock> free;
 			tBlock clusternumber = 0;
 

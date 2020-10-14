@@ -96,6 +96,7 @@ namespace firy {
 			virtual bool filesystemLoad() override;
 			virtual bool filesystemSave() override;
 			virtual spBuffer filesystemRead(spNode pFile) override;
+			virtual bool filesystemRemove(spNode pFile) override;
 
 			d64::spFile filesystemFileCreate(const std::string& pName = "") {
 				auto res = std::make_shared<d64::sFile>(weak_from_this(), pName);
@@ -109,10 +110,10 @@ namespace firy {
 			virtual size_t sectorSize(const tTrack pTrack = 0) const override;
 
 			virtual bool sectorIsFree(const tTrackSector pTS) const override;
-			virtual bool sectorSet(const tTrackSector pTS, const bool pValue);
+			virtual bool sectorSet(const tTrackSector pTS, const bool pValue) override;
 
 			virtual std::vector<tTrackSector> sectorsUse(const tSector pTotal) override;
-			virtual bool sectorsFree(const std::vector<tTrackSector> pSectors) override;
+			virtual bool sectorsFree(const std::vector<tTrackSector>& pSectors) override;
 
 			virtual std::vector<tTrackSector> sectorsGetFree(const tTrack pTrack = 0) const override;
 

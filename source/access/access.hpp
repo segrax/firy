@@ -54,10 +54,17 @@ namespace firy {
 			}
 
 			/**
+			 * Save a specific object to an offset in the source
+			 */
+			template <class tBlockType> bool objectPut(const size_t pOffset, std::shared_ptr<tBlockType> pObject) {
+				return mSource->objectPut<tBlockType>(pOffset, pObject);
+			}
+
+			/**
 			 * Return a copy of the source
 			 */
 			spBuffer sourceBufferCopy(const size_t pOffset = 0, const size_t pSize = 0) {
-				return mSource->bufferCopy(pOffset, pSize);
+				return mSource->chunkCopyToBuffer(pOffset, pSize);
 			}
 
 			/**
@@ -72,7 +79,7 @@ namespace firy {
 			 */
 			bool sourceBufferWrite(const size_t pOffset, const spBuffer pBuffer) {
 
-				if (!mSource->bufferWrite(pOffset, pBuffer))
+				if (!mSource->chunkCopyFromBuffer(pOffset, pBuffer))
 					return false;
 				dirty(true);
 				return true;

@@ -122,6 +122,11 @@ namespace firy {
 		insert(end(), pBuffer->begin(), pBuffer->end());
 	}
 
+	void cBuffer::pushBuffer(const uint8_t* pBuffer, const size_t pSize) {
+		dirty(true);
+		insert(end(), pBuffer, pBuffer + pSize);
+	}
+
 	void cBuffer::putByte(const size_t pOffset, uint8_t pByte) {
 		expandOffset(pOffset);
 		dirty(true);
@@ -194,7 +199,6 @@ namespace firy {
 			return false;
 
 		dirty(true);
-
 		memcpy(&at(pOffset), pBuffer->data(), pBuffer->size());
 		return true;
 	}
@@ -209,6 +213,16 @@ namespace firy {
 		}
 
 		memcpy(&at(pOffset), pBuffer->data() + pOffsetStart, pSize);
+		dirty(true);
+		return true;
+	}
+
+	bool cBuffer::write(const size_t pOffset, const uint8_t* pBuffer, const size_t pSize) {
+		size_t maxSize = size() - pOffset;
+		if (maxSize < pSize)
+			return false;
+
+		memcpy(&at(pOffset), pBuffer, pSize);
 		dirty(true);
 		return true;
 	}

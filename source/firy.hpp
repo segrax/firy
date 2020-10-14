@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <string>
 
 #ifdef _MSC_VER
 #include <Windows.h>

@@ -193,6 +193,7 @@ namespace firy {
 			virtual std::string filesystemNameGet() const;
 			virtual bool filesystemLoad();
 			virtual spBuffer filesystemRead(spNode pFile);
+			virtual bool filesystemRemove(spNode pFile) override;
 
 			virtual bool partitionOpen(int pNumber);
 
@@ -201,7 +202,11 @@ namespace firy {
 			virtual tBlock blockToCluster(const tBlock pBlock) const;
 
 			virtual bool blockIsFree(const tBlock pBlock) const;
-			virtual std::vector<tBlock> blocksFree() const;
+			virtual bool blockSet(const tBlock pBlock, const bool pValue) override;
+
+			virtual std::vector<tBlock> blockUse(const tBlock pTotal) override;
+			virtual bool blocksFree(const std::vector<tBlock>& pBlocks) override;
+			virtual std::vector<tBlock> blocksGetFree() const;
 
 			spBuffer clusterChainReadRoot(size_t pStartBlock);
 			spBuffer clusterChainRead(size_t pCluster);

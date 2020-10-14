@@ -71,7 +71,7 @@ namespace firy {
 		 */
 		bool cTracks::sectorWrite(const tTrackSector pTS, const spBuffer pBuffer) {
 			
-			return sourceBufferWrite(sectorOffset(pTS), pBuffer);;
+			return sourceBufferWrite(sectorOffset(pTS), pBuffer);
 		}
 
 		/**

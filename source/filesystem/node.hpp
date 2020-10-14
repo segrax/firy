@@ -11,9 +11,11 @@ namespace firy {
 			inline std::string nameGet() const { return mName; }
 			inline void nameSet(const std::string pName) { mName = pName; dirty(); }
 
+			virtual bool remove();
+
+
 		protected:
 			wpFilesystem mFilesystem;
-			wpNode mParent;
 			std::string mName;
 		};
 	}

@@ -82,7 +82,7 @@ namespace firy {
 				/*1d4*/	int32_t	realEntry;
 				/*1d8*/	int32_t	nextLink;
 				int32_t	r5[5];
-				/*1f0*/	int32_t	nextSameHash;
+				/*1f0*/	int32_t	nextSameHash;	// Block no of filename with same hash, but different file
 				/*1f4*/	int32_t	parent;
 				/*1f8*/	int32_t	extension;
 				/*1fc*/	int32_t	secType;
@@ -156,6 +156,15 @@ namespace firy {
 				/*1fc*/	int32_t	nextBlock;
 			};
 
+			struct sDateTime {
+				int year, month, days, hour, mins, secs;
+
+				sDateTime();
+				void reset() {
+					year = month = days = hour = mins = secs = 0;
+				}
+			};
+
 			struct sEntry {
 				int mType;
 				size_t mSizeInSectors;
@@ -165,8 +174,7 @@ namespace firy {
 				tBlock mNextSameHash;
 				std::string mComment;
 				int32_t access;
-				int year, month, days;
-				int hour, mins, secs;
+				sDateTime mDate;
 
 				sEntry() {
 					mType = 0;
@@ -176,23 +184,68 @@ namespace firy {
 					mParent = 0;
 					mNextSameHash = 0;
 					access = -1;
-					year = month = days = hour = mins = secs = 0;
+					mDate.reset();
+				}
+
+				uint8_t toUpperIntl(const uint8_t c) {
+					return (c >= 'a' && c <= 'z') || 
+						   (c >= 224 && c <= 254 && c != 247) ? c - ('a' - 'A') : c;
+				}
+
+				/**
+				 * Get the hash value for the provided string
+				 */
+				uint32_t getHashValue(const std::string& pName, const bool pInternational) {
+					uint32_t hash, len;
+					unsigned int i;
+					uint8_t upper;
+
+					len = hash = min((uint32_t) pName.size(), MAXNAMELEN);
+					for (i = 0; i < len; i++) {
+						if (pInternational)
+							upper = toUpperIntl(pName[i]);
+						else
+							upper = toupper(pName[i]);
+						hash = (hash * 13 + upper) & 0x7ff;
+					}
+					hash = hash % HT_SIZE;
+					return(hash);
+				}
+
+				virtual uint32_t getNameHash(const bool pInternational) = 0;
+			};
+
+			/**
+			 * Representation of a file
+			 */
+			struct sFile : public sEntry, public filesystem::sFile {
+				sFile(wpFilesystem pFilesystem, const std::string& pName = "");
+
+				/** 
+				 * Get the hash of this entry
+				 */
+				virtual uint32_t getNameHash(const bool pInternational) {
+					return getHashValue(nameGet(), pInternational);
 				}
 			};
 
 			/**
-			 * Amiga: Representation of a file on a disk
+			 * Representation of a directory
 			 */
-			struct sFile : public sEntry, public filesystem::sFile {
-				sFile(wpFilesystem pFilesystem, const std::string& pName = "");
-			};
-
 			struct sDir : public sEntry, public filesystem::sDirectory {
 				sDir(wpFilesystem pFilesystem, const std::string& pName = "");
+
+				/**
+				 * Get the hash of this entry
+				 */
+				virtual uint32_t getNameHash(const bool pInternational) {
+					return getHashValue(nameGet(), pInternational);
+				}
 			};
 
 			typedef std::shared_ptr<sFile> spFile;
 			typedef std::shared_ptr<sDir> spDir;
+			typedef std::shared_ptr<sEntry> spEntry;
 		}
 
 		/**
@@ -203,52 +256,66 @@ namespace firy {
 		public:
 			cADF(spSource pSource);
 
-			virtual std::string filesystemNameGet() const;
-			virtual bool filesystemLoad();
-			virtual spBuffer filesystemRead(spNode pFile);
-
-			virtual size_t blockSize(const tBlock pBlock = 0) const;
-			virtual bool blockIsFree(const tBlock pBlock) const;
-			virtual std::vector<tBlock> blocksFree() const;
-
-			virtual std::shared_ptr<adf::sOFSDataBlock> blockReadOFS(const tBlock pBlock);
-
-			adf::eType diskType() const;
-
-			virtual std::string imageType() const {
+			virtual std::string imageType() const override {
 				return "Amiga Disk Format (adf)";
 			}
 
-			virtual std::vector<std::string> imageExtensions() const {
+			virtual std::vector<std::string> imageExtensions() const override {
 				return { "adf", "hdf" };
 			}
+
+			virtual std::string filesystemNameGet() const override;
+			virtual bool filesystemLoad() override;
+			virtual bool filesystemSave() override;
+			virtual bool filesystemSaveNode(spNode pNode, adf::spDir pParent);
+			virtual spBuffer filesystemRead(spNode pFile) override;
+			virtual bool filesystemRemove(spNode pFile) override;
+
+			adf::spFile filesystemFileCreate(const std::string& pName = "") {
+				auto res = std::make_shared<adf::sFile>(weak_from_this(), pName);
+				res->dirty(true);
+				return res;
+			}
+
+			virtual size_t blockSize(const tBlock pBlock = 0) const override;
+			virtual bool blockIsFree(const tBlock pBlock) const override;
+			virtual bool blockSet(const tBlock pBlock, const bool pValue) override;
+
+			virtual std::vector<tBlock> blockUse(const tBlock pTotal) override;
+			virtual bool blocksFree(const std::vector<tBlock>& pBlocks) override;
+
+			virtual std::vector<tBlock> blocksGetFree() const override;
+
+			adf::eType diskType() const;
+
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
 			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
-			virtual bool filesystemChainLoad(spFile pFile);
-			virtual bool filesystemBitmapLoad();
-			virtual bool filesystemBitmapSave();
+			virtual bool filesystemChainLoad(spFile pFile) override;
+			virtual bool filesystemBitmapLoad() override;
+			virtual bool filesystemBitmapSave() override;
 
 		private:
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock);
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoadNoCheck(const size_t pBlock);
+			template <class tBlockType> bool blockSave(const size_t pBlock, std::shared_ptr<tBlockType> pData);
 
 			template <class tBlockType> void blockSwapEndian(std::shared_ptr<tBlockType> pBlock);
 
 			bool blockBootLoad();
 			bool blockRootLoad();
 
-			spNode entryLoad(const tBlock pOffset);
+			spNode entryLoad(const tBlock pBlock);
 			bool entrysLoad(adf::spDir pNode);
-
+			int32_t entryGet(adf::spDir pDir, spNode pEntry);
 
 		public:
 			std::shared_ptr<adf::sBootBlock> mBootBlock;
 			std::shared_ptr<adf::sRootBlock> mRootBlock;
 
-			tBlock mBlockFirst;
-			tBlock mBlockLast;
-			tBlock mBlockRoot;
+			tBlock mBlockFirst;	// Block number of first
+			tBlock mBlockLast;	// Block number of last
+			tBlock mBlockRoot;	// Block Number of the Root
 			std::vector<std::shared_ptr<adf::sBitmapBlock>> mBitmapBlocks;
 		};
 

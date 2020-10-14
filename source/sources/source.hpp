@@ -17,9 +17,10 @@ namespace firy {
 			virtual void chunkSizeSet(const size_t pChunkSize = gMegabyte);
 			virtual bool chunkPrepare(size_t pSize);
 
-			virtual spBuffer bufferCopy(const size_t pOffset = 0, const size_t pSize = 0);
-			virtual size_t bufferCopyTo(uint8_t* pTarget, const size_t pSize, const size_t pOffset = 0);
-			virtual bool bufferWrite(const size_t pOffset, spBuffer pBuffer);
+			virtual spBuffer chunkCopyToBuffer(const size_t pOffset = 0, const size_t pSize = 0);
+			virtual size_t chunkCopyToPtr(uint8_t* pTarget, const size_t pSize, const size_t pOffset = 0);
+			virtual bool chunkCopyFromBuffer(const size_t pOffset, spBuffer pBuffer);
+			virtual bool chunkCopyFromPtr(uint8_t* pSource, const size_t pSize, const size_t pOffset);
 
 			virtual size_t size() const;
 
@@ -28,12 +29,15 @@ namespace firy {
 			 */
 			template <class tBlockType> std::shared_ptr<tBlockType> objectGet(const size_t pOffset = 0) {
 				std::shared_ptr<tBlockType> result = std::make_shared<tBlockType>();
-				size_t size = bufferCopyTo((uint8_t*) result.get(), sizeof(tBlockType), pOffset);
+				size_t size = chunkCopyToPtr((uint8_t*) result.get(), sizeof(tBlockType), pOffset);
 				if (size != sizeof(tBlockType))
 					return 0;
 				return result;
 			}
 
+			template <class tBlockType> bool objectPut(const size_t pOffset, std::shared_ptr<tBlockType> pObject) {
+				return chunkCopyFromPtr((uint8_t*)pObject.get(), sizeof(tBlockType), pOffset);
+			}
 
 			virtual uint8_t* sourceChunkPtr(const size_t pOffset = 0);
 

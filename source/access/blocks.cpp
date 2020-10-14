@@ -12,6 +12,14 @@ namespace firy {
 			return mBlockCount;
 		}
 
+		tBlock cBlocks::blockUseSingle() {
+			auto blocks = blockUse(1);
+			if (blocks.size() == 1) {
+				return blocks[0];
+			}
+			throw std::exception("not free block");
+		}
+
 		size_t cBlocks::blockSize(const tBlock pBlock) const {
 			return mBlockSize;
 		}
@@ -21,7 +29,7 @@ namespace firy {
 		}
 
 		bool cBlocks::blockWrite(const tBlock pBlock, const spBuffer pBuffer) {
-			return false;
+			return sourceBufferWrite(blockOffset(pBlock), pBuffer);
 		}
 
 		spBuffer cBlocks::blockRead(const tBlock pBlock) {

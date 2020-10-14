@@ -27,6 +27,7 @@ namespace firy {
 			virtual spFile filesystemFile(const std::string& pPath);
 
 			virtual spBuffer filesystemRead(spNode pFile) = 0;
+			virtual bool filesystemRemove(spNode pFile) = 0;
 
 			virtual bool filesystemCreate() { gDebug->error("not implemented"); return false; }
 			virtual bool filesystemLoad() = 0;
