@@ -36,8 +36,18 @@ namespace firy {
 
 			// Total new file?
 			if (pFile.size() && pFile != mFilename) {
-				gDebug->error("Save as not implemented");
-				return false;
+
+				// TODO: We need to copy the source not in mBuffers
+
+				for (auto& buffer : mBuffers) {
+					size_t offset = buffer.first * mSourceChunkSize;
+					if (!gResources->FileWrite(pFile, offset, buffer.second)) {
+						if (gResources->FileSave(pFile, buffer.second))
+							continue;
+					}
+				}
+
+				return true;
 			}
 
 			for (auto& buffer : mBuffers) {

@@ -79,6 +79,10 @@ namespace firy {
 				secs = local.tm_sec;
 			}
 
+			void sDateTime::reset() {
+				year = month = days = hour = mins = secs = 0;
+			}
+
 			/**
 			 *
 			 */
@@ -196,12 +200,52 @@ namespace firy {
 
 			}
 
+			void sFile::setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent) {
+				convertTimeToAmigaTime(mDate, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
+
+				pHeader->nameLen = (char)min(adf::gFilenameMaximumLength, nameGet().size());
+				memcpy(pHeader->fileName, nameGet().data(), pHeader->nameLen);
+
+				pHeader->commLen = (char)min(adf::gCommentMaximumLength, mComment.size());
+				memcpy(pHeader->comment, mComment.data(), pHeader->commLen);
+
+				pHeader->headerKey = (int32_t)mBlock;
+				pHeader->mType = 2;	//T_HEADER
+				pHeader->dataSize = 0;
+				pHeader->secType = -3;
+				pHeader->parent = (int32_t)pParent->mBlock;
+				if (mContent->size()) {
+					pHeader->byteSize = (uint32_t)mContent->size();
+				}
+				pHeader->access = this->access;
+			}
+
 			/**
 			 * Directory inside ADF
 			 */
 			sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
 
 			}
+
+			void sDir::setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent) {
+				adf::convertTimeToAmigaTime(mDate, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
+
+				pHeader->nameLen = (char)min(adf::gFilenameMaximumLength, nameGet().size());
+				memcpy(pHeader->fileName, nameGet().data(), pHeader->nameLen);
+
+				pHeader->commLen = (char)min(adf::gCommentMaximumLength, mComment.size());
+				memcpy(pHeader->comment, mComment.data(), pHeader->commLen);
+
+				pHeader->headerKey = (int32_t)mBlock;
+				pHeader->mType = 2;	//T_HEADER
+				pHeader->dataSize = 0;
+				pHeader->highSeq = 0;
+				pHeader->secType = 2;	// DIR
+				pHeader->parent = (int32_t)pParent->mBlock;
+				pHeader->byteSize = 0;
+				pHeader->access = this->access;
+			}
+
 		}
 
 		/**
@@ -213,8 +257,6 @@ namespace firy {
 			mBlockFirst = 0;
 			mBlockLast = 0;
 			mBlockRoot = 0;
-
-			mBlockCount = pSource->size() / mBlockSize;
 		}
 
 		/**
@@ -246,9 +288,122 @@ namespace firy {
 		}
 
 		/**
+		 *
+		 */
+		bool cADF::filesystemCreate() {
+			auto root = std::make_shared<adf::sDir>(weak_from_this(), "/");
+
+			mBitmapBlocks.clear();
+
+			// Standard ADF size
+			sourceChunkPrepare(901120);
+
+			blockCalculate();
+
+			root->mBlock = mBlockRoot;
+			mFsRoot = root;
+
+			// Write bootblock
+			{
+				mBootBlock = blockObjectCreate<adf::sBootBlock>();
+				mBootBlock->dosType[0] = 'D';
+				mBootBlock->dosType[1] = 'O';
+				mBootBlock->dosType[2] = 'S';
+				mBootBlock->dosType[3] = 1;
+				blockObjectPut(0, mBootBlock);
+			}
+
+			// Write the rootblock
+			{
+				mRootBlock = blockObjectCreate<adf::sRootBlock>();
+				mRootBlock->mType = 2;
+				mRootBlock->headerKey = 0;
+				mRootBlock->highSeq = 0;
+				mRootBlock->hashTableSize = adf::HT_SIZE;
+				mRootBlock->firstData = 0L;
+				mRootBlock->nextSameHash = 0L;
+				mRootBlock->parent = 0L;
+				mRootBlock->secType = 1;		// Root
+
+				mRootBlock->bmFlag = -1;
+				mRootBlock->bmPages[0] = 881;	// First bitmap
+
+				blockSave(mBlockRoot, mRootBlock);
+
+				mBitmapBlocks.push_back(blockObjectCreate<adf::sBitmapBlock>());
+			}
+
+			size_t index = 1;
+			tBlock lastBitmapBlock = (mBlockLast - 1) / (127 * 32);
+			while (mBitmapBlocks.size() < lastBitmapBlock) {
+				mRootBlock->bmPages[index++] = (int32_t)blockUseSingle();
+				if (index >= adf::BM_SIZE) {
+					break;
+				}
+				mBitmapBlocks.push_back({});
+			}
+
+			if(mBitmapBlocks.size() < lastBitmapBlock)
+				mRootBlock->bmExt = (int32_t)blockUseSingle();
+
+			auto ext = mRootBlock->bmExt;
+			auto extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
+			
+			while (mBitmapBlocks.size() < lastBitmapBlock) {
+
+				extBlock->bmPages[index++] = (int32_t)blockUseSingle();
+				mBitmapBlocks.push_back({});
+
+				// End of this block?
+				if (index >= adf::BM_SIZE) {
+					if(mBitmapBlocks.size() < lastBitmapBlock)
+						extBlock->nextBlock = (int32_t)blockUseSingle();
+				}
+
+				blockSaveNoCheck(ext, extBlock);
+				if (extBlock->nextBlock) {
+					ext = extBlock->nextBlock;
+					extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
+				}
+			}
+
+			// Mark all blocks free
+			for (int x = 2; x < mBlockLast; ++x) {
+				blockSet(x, false);
+			}
+
+			// Mark blocks used by the bitmap as in use
+			{
+				// Mark the root in use
+				blockSet(mBlockRoot, true);
+
+				// Mark all pages used in the bitmap used
+				for (auto& blockno : mRootBlock->bmPages) {
+					if (blockno)
+						blockSet(blockno, true);
+				}
+
+				// Mark all pages in the bitmap extension used
+				auto ext = mRootBlock->bmExt;
+				while (ext) {
+					auto extBlock = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
+					for (auto& blockno : extBlock->bmPages) {
+						if (blockno)
+							blockSet(blockno, true);
+					}
+					ext = extBlock->nextBlock;
+				}
+			}
+
+			return filesystemBitmapSave();
+		}
+
+		/**
 		 * Load the filesystem metadata
 		 */
 		bool cADF::filesystemLoad() {
+			if (!blockCalculate())
+				return false;
 			if (!blockBootLoad())
 				return false;
 			if (!blockRootLoad())
@@ -268,6 +423,11 @@ namespace firy {
 		 *
 		 */
 		bool cADF::filesystemSave() {
+			mRootBlock->nameLen = (char)min(adf::gFilenameMaximumLength, mFsName.size());
+			memcpy(mRootBlock->diskName, mFsName.data(), mRootBlock->nameLen);
+
+			blockSave(mBlockRoot, mRootBlock);
+
 			if (!filesystemSaveNode(mFsRoot, 0))
 				return false;
 
@@ -279,125 +439,152 @@ namespace firy {
 		}
 
 		/**
+		 * Copy a buffer into blocks, adding the block numbers to the pBlock 'dataBlocks' member
+		 */
+		template <class tBlockType> bool cADF::filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer) {
+			pBlock->highSeq = 0;
+
+			// Loop until we fill the block, or run out of buffer
+			for (int index = adf::gDataBlocksMax - 1; index >= 0; --index) {
+				auto nextBlock = blockUseSingle();
+
+				pBlock->dataBlocks[index] = (int32_t)nextBlock;
+				++pBlock->highSeq;
+
+				spBuffer buffer = std::make_shared<tBuffer>();
+				buffer->pushBuffer(pBuffer->takeBytes(adf::gBytesPerBlock < pBuffer->size() ? adf::gBytesPerBlock : pBuffer->size()));
+				if (!blockWrite(nextBlock, buffer)) {
+					return false;
+				}
+
+				if (!pBuffer->size())
+					break;
+			}
+
+			// a File-Header-Block contains the first block of the data
+			if (typeid(tBlockType) == typeid(adf::sFileHeaderBlock)) {
+				pBlock->firstData = pBlock->dataBlocks[adf::gDataBlocksMax - 1];
+			}
+
+			// Need extension?
+			pBlock->extension = ((int32_t)pBuffer->size() == 0) ? 0 : (int32_t) blockUseSingle();
+
+			// Add more extensions and loop until all bytes saved
+			auto ext = pBlock->extension;
+			while (pBuffer->size()) {
+				auto blockExt = blockObjectCreate<adf::sFileExtBlock>();
+				blockExt->headerKey = ext;
+
+				if (!filesystemSaveFileToBlocks(blockExt, pBuffer)) {
+					return false;
+				}
+
+				// Need another extension?
+				blockExt->extension = ((int32_t)pBuffer->size() == 0) ? 0 : (int32_t) blockUseSingle();
+
+				blockSave(ext, blockExt);
+				ext = blockExt->extension;
+			}
+			return true;
+		}
+
+		/**
+		 * Save a file
+		 */
+		bool cADF::filesystemSaveFile(adf::spFile pFile, adf::spDir pParent) {
+			auto entry = std::dynamic_pointer_cast<adf::sEntry>(pFile);
+			bool isNew = false;
+
+			if (!pFile->isDirty())
+				return true;
+
+			// New File?
+			if (!pFile->mBlock) {
+				auto newBlock = entryCreate(pParent, pFile);
+				if (newBlock == -1)
+					return false;
+
+				// File exists
+				if (newBlock == -2)
+					return false;
+
+				isNew = true;
+				pFile->mBlock = newBlock;
+			}
+
+			auto header = isNew ? blockObjectCreate<adf::sFileHeaderBlock>() : blockLoad<adf::sFileHeaderBlock>(pFile->mBlock);
+			pFile->setBlock(header, pParent);
+			if (pFile->mContent->size()) {
+				if (!filesystemSaveFileToBlocks(header, pFile->mContent)) {
+					// TODO: Free blocks
+					return false;
+				}
+			}
+			blockSave(pFile->mBlock, header);
+			pFile->dirty(false);
+			return true;
+		}
+
+		/**
+		 * Save a directory
+		 */
+		bool cADF::filesystemSaveDir(adf::spDir pDir, adf::spDir pParent) {
+			bool isNew = false;
+
+			if (!pDir->isDirty())
+				return true;
+				
+			// If no parent, this is the root
+			if (pParent) {
+				// Has this dir already got a header block
+				if (!pDir->mBlock) {
+					auto newBlock = entryCreate(pParent, pDir);
+					if (newBlock == -1)
+						return false;
+					if (newBlock == -2)
+						return true;
+
+					isNew = true;
+					pDir->mBlock = newBlock;
+				}
+
+				std::shared_ptr<adf::sFileHeaderBlock> block;
+				auto header = isNew ? blockObjectCreate<adf::sFileHeaderBlock>() : blockLoad<adf::sFileHeaderBlock>(pDir->mBlock);
+				pDir->setBlock(header, pParent);
+				blockSave(block->headerKey, block);
+			}
+
+			// Sub Dirs
+			for (auto node : pDir->mNodes) {
+				if (!filesystemSaveNode(node, pDir))
+					return false;
+			}
+
+			pDir->dirty(false);
+			return true;
+		}
+
+		/**
 		 *
 		 */
 		bool cADF::filesystemSaveNode(spNode pNode, adf::spDir pParent) {
-			auto entry = std::dynamic_pointer_cast<adf::sEntry>(pNode);
 			auto file = std::dynamic_pointer_cast<adf::sFile>(pNode);
 			if (file) {
-				if (file->isDirty()) {
-					file->mBlock = entryGet(pParent, pNode);
-					if (file->mBlock == -1 || file->mBlock == -2) {
-						return false;
-					}
-
-					auto block = blockObjectCreate<adf::sFileHeaderBlock>();
-					block->nameLen = (char)min(adf::MAXNAMELEN, file->nameGet().size());
-					memcpy(block->fileName, file->nameGet().data(), block->nameLen);
-
-					block->headerKey = file->mBlock;
-					block->mType = 2;	//T_HEADER
-					block->dataSize = 0;
-					block->secType = -3;
-					block->parent = (int32_t) pParent->mBlock;
-					block->byteSize = (uint32_t) file->mContent->size();
-
-					// Loop until EOF
-					for (int index = adf::MAX_DATABLK - 1; index >= 0; --index) {
-						auto nextBlock = blockUseSingle();
-
-						if(!block->firstData)
-							block->firstData = nextBlock;
-
-						block->dataBlocks[index] = (int32_t) nextBlock;
-						++block->highSeq;
-
-						spBuffer buffer = std::make_shared<tBuffer>();
-						buffer->pushBuffer(file->mContent->takeBytes(adf::gBytesPerBlock < file->mContent->size() ? adf::gBytesPerBlock : file->mContent->size()));
-						blockWrite(nextBlock, buffer);
-
-						if (!file->mContent->size())
-							break;
-					}
-					// Need extension?
-					tBlock ext = 0;
-					if (file->mContent->size())
-						ext = blockUseSingle();
-					block->extension = ext;
-
-					blockSave(file->mBlock, block);
-
-					while (file->mContent->size()) {
-						auto blockExt = blockObjectCreate<adf::sFileExtBlock>();
-						blockExt->headerKey = ext;
-
-						for (int index = adf::MAX_DATABLK - 1; index >= 0; --index) {
-							auto nextBlock = blockUseSingle();
-
-							blockExt->dataBlocks[index] = (int32_t)nextBlock;
-
-							spBuffer buffer = std::make_shared<tBuffer>();
-							buffer->pushBuffer(file->mContent->takeBytes(adf::gBytesPerBlock < file->mContent->size() ? adf::gBytesPerBlock : file->mContent->size()));
-							blockWrite(nextBlock, buffer);
-
-							if (!file->mContent->size())
-								break;
-						}
-
-						tBlock extNxt = 0;
-						if (file->mContent->size())
-							extNxt = blockUseSingle();
-						blockExt->extension = extNxt;
-
-						blockSave(ext, blockExt);
-						ext = extNxt;
-					}
-				}
-				return true;
+				return filesystemSaveFile(file, pParent);
 			}
 
 			auto dir = std::dynamic_pointer_cast<adf::sDir>(pNode);
 			if (dir) {
-				if (dir->isDirty() && pParent) {
-					auto newBlock = entryGet(pParent, pNode);
-					if (newBlock == -1) {
-						return false;
-					}
-					std::shared_ptr<adf::sFileHeaderBlock> block;
-
-					if (newBlock >= 0) {
-						block = blockObjectCreate<adf::sFileHeaderBlock>();
-						block->nameLen = (char) min(adf::MAXNAMELEN, file->nameGet().size());
-						memcpy(block->fileName, file->nameGet().data(), block->nameLen);
-
-						block->headerKey = newBlock;
-						block->parent = (int32_t)pParent->mBlock;
-
-						block->highSeq = 0;
-						block->dataSize = 0;	// hashTablesize
-						block->mType = 2;	//T_HEADER
-						block->secType = 2;
-					} else {
-						block = blockObjectGet<adf::sFileHeaderBlock>(entry->mBlock);
-					}
-
-					blockSave(block->headerKey, block);
-				}
-
-				// Sub Dirs
-				for (auto node : dir->mNodes) {
-					if (!filesystemSaveNode(node, dir))
-						return false;
-				}
+				return filesystemSaveDir(dir, pParent);
 			}
 
-			return true;
+			return false;
 		}
 
 		/**
 		 * Get the sector for a hash from this directory
 		 */
-		int32_t cADF::entryGet(adf::spDir pDir, spNode pNode) {
+		int32_t cADF::entryCreate(adf::spDir pDir, spNode pNode) {
 			auto block = blockLoad<adf::sEntryBlock>(pDir->mBlock);
 			if (!block)
 				return -1;
@@ -434,7 +621,7 @@ namespace firy {
 
 				// Check if its the file we are trtying to save
 				if (nextBlock->nameLen == pNode->nameGet().size()) {
-					auto name = std::string(nextBlock->name, min(nextBlock->nameLen, adf::MAXNAMELEN));
+					auto name = std::string(nextBlock->name, min(nextBlock->nameLen, adf::gFilenameMaximumLength));
 
 					if (pNode->nameGet() == name) {
 						return -2;
@@ -508,7 +695,6 @@ namespace firy {
 			case 4:	{	// ST_LDIR
 				node = std::make_shared<adf::sDir>(weak_from_this());
 				entry = std::dynamic_pointer_cast<adf::sEntry>(node);
-				entry->mReal = blockEntry->realEntry;
 				break;
 			}
 
@@ -517,7 +703,6 @@ namespace firy {
 			case -4: {	// ST_LFILE
 				node = filesystemFileCreate();
 				entry = std::dynamic_pointer_cast<adf::sEntry>(node);
-				entry->mReal = blockEntry->realEntry;
 				break;
 			}
 			
@@ -533,7 +718,7 @@ namespace firy {
 			entry->mType = blockEntry->secType;
 			entry->mParent = blockEntry->parent;
 
-			node->nameSet(std::string(blockEntry->name, min(blockEntry->nameLen, adf::MAXNAMELEN)));
+			node->nameSet(std::string(blockEntry->name, min(blockEntry->nameLen, adf::gFilenameMaximumLength)));
 
 			adf::convertDaysToDate(blockEntry->days, &(entry->mDate.year), &(entry->mDate.month), &(entry->mDate.days));
 			entry->mDate.hour = blockEntry->mins / 60;
@@ -586,7 +771,7 @@ namespace firy {
 
 			} else {
 				// New Filesystem
-				for (int index = adf::MAX_DATABLK-1; index >= 0; --index) {
+				for (int index = adf::gDataBlocksMax-1; index >= 0; --index) {
 					if (!blockFile->dataBlocks[index])
 						break;
 					
@@ -605,7 +790,7 @@ namespace firy {
 						break;
 					}
 
-					for (int index = adf::MAX_DATABLK - 1; index >= 0; --index) {
+					for (int index = adf::gDataBlocksMax - 1; index >= 0; --index) {
 						if (!blockExt->dataBlocks[index])
 							break;
 
@@ -748,13 +933,21 @@ namespace firy {
 		 * Name of the disk
 		 */
 		std::string cADF::filesystemNameGet() const {
-			return std::string(mRootBlock->diskName, mRootBlock->nameLen);
+			return mFsName;
+		}
+
+		/**
+		 * Set the disk label
+		 */
+		void cADF::filesystemNameSet(const std::string& pName) {
+			mFsName = pName;
 		}
 
 		/**
 		 *
 		 */
 		bool cADF::filesystemChainLoad(spFile pFile) {
+
 			return false;
 		}
 		
@@ -799,7 +992,32 @@ namespace firy {
 		 * Save the disk bitmap
 		 */
 		bool cADF::filesystemBitmapSave() {
-			return false;
+
+			tBlock index = 0;
+
+			tBlock ext = mRootBlock->bmExt;
+			std::shared_ptr< adf::sBitmapExtBlock> blkext = 0;
+			int32_t* pages = mRootBlock->bmPages;
+			int32_t maxpages = adf::BM_SIZE;
+
+			// 
+			for (auto& bitmapBlock : mBitmapBlocks) {
+				if (pages[index]) {
+					blockSave(pages[index], bitmapBlock);
+				}
+
+				if (++index >= adf::BM_SIZE) {
+					index = 0;
+
+					blkext = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
+					ext = blkext->nextBlock;
+					pages = blkext->bmPages;
+					maxpages = 127;
+				}
+
+			}
+
+			return blockRootLoad();
 		}
 
 		bool cADF::blockBootLoad() {
@@ -815,9 +1033,12 @@ namespace firy {
 		}
 
 		/**
-		 * Locate and load the root block
+		 * Calculate the root and last block
 		 */
-		bool cADF::blockRootLoad() {
+		bool cADF::blockCalculate() {
+
+			mBlockCount = sourceSize() / mBlockSize;
+
 			switch (diskType()) {
 			case adf::eType::FLOPPY_HD:
 				mBlockLast = (80 * 2 * 12) - 1;
@@ -834,7 +1055,17 @@ namespace firy {
 
 			mBlockFirst = 0;
 			mBlockRoot = (mBlockLast + 1 - mBlockFirst) / 2;
+			return true;
+		}
+
+		/**
+		 * Locate and load the root block
+		 */
+		bool cADF::blockRootLoad() {
+
 			mRootBlock = blockLoad<adf::sRootBlock>(mBlockRoot);
+			mFsName = std::string(mRootBlock->diskName, mRootBlock->nameLen);
+
 			return (mRootBlock != 0);
 		}
 
@@ -881,7 +1112,7 @@ namespace firy {
 		}
 
 		/**
-		 * Read a block
+		 * Read a block and validate its checksum
 		 */
 		template <class tBlockType> std::shared_ptr<tBlockType> cADF::blockLoad(const size_t pBlock) {
 			auto block = blockObjectGet<tBlockType>(pBlock);
@@ -919,16 +1150,36 @@ namespace firy {
 		}
 
 		/**
-		 * Write a block
+		 * Write a block and generate its checksum
 		 */
 		template <class tBlockType> bool cADF::blockSave(const size_t pBlock, std::shared_ptr<tBlockType> pData) {
-
 			blockSwapEndian(pData);
-			auto val = blockChecksum((const uint8_t*)pData.get(), blockSize());
 
-			pData->checkSum = readBEDWord(&val);
+			auto checksum = blockChecksum((const uint8_t*)pData.get(), blockSize());
+			
+			if (typeid(tBlockType) == typeid(adf::sBootBlock)) {
+				checksum = blockBootChecksum((const uint8_t*)pData.get(), blockSize());
 
-			return blockObjectPut< tBlockType>(pBlock, pData);
+			} else if (typeid(tBlockType) == typeid(adf::sBitmapBlock)) {
+				checksum = blockChecksum((const uint8_t*)pData.get(), blockSize(), 0);
+			}
+
+
+			pData->checkSum = readBEDWord(&checksum);
+
+			auto res = blockObjectPut< tBlockType>(pBlock, pData);
+			blockSwapEndian(pData);
+			return res;
+		}
+
+		/**
+		 * Write a block
+		 */
+		template <class tBlockType> bool cADF::blockSaveNoCheck(const size_t pBlock, std::shared_ptr<tBlockType> pData) {
+			blockSwapEndian(pData);
+			auto res = blockObjectPut< tBlockType>(pBlock, pData);
+			blockSwapEndian(pData);
+			return res;
 		}
 	}
 }

@@ -43,6 +43,7 @@ namespace firy {
 
 			spDirectory mFsRoot;
 			std::string mFsPathSeperator;
+			std::string mFsName;
 		};
 	}
 

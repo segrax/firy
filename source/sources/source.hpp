@@ -11,7 +11,7 @@ namespace firy {
 			virtual bool create(const std::string pFile) = 0;
 			virtual bool open(const std::string pID) = 0;
 			virtual void close() = 0;
-			virtual bool save(const std::string pID = "") = 0;
+			virtual bool save(std::string pID = "") = 0;
 
 			virtual spBuffer chunk(const size_t pFileOffset = 0) = 0;
 			virtual void chunkSizeSet(const size_t pChunkSize = gMegabyte);

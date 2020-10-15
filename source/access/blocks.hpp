@@ -11,8 +11,14 @@ namespace firy {
 		public:
 			cBlocks();
 
+			/**
+			 *
+			 */
 			virtual spBuffer blockRead(const tBlock pBlock);
 
+			/**
+			 *
+			 */
 			virtual bool blockWrite(const tBlock pBlock, const spBuffer pBuffer);
 
 			/**
@@ -69,6 +75,9 @@ namespace firy {
 				return objectPut<tBlockType>(pBlock * blockSize(), pObject);
 			}
 
+			/**
+			 * Create an object
+			 */
 			template <class tBlockType> std::shared_ptr<tBlockType> blockObjectCreate() {
 				return std::make_shared<tBlockType>();
 			}

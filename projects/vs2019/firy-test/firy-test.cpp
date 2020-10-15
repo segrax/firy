@@ -143,9 +143,11 @@ template <class tType> auto createTestImage_InjectRaws() {
 
 int main()
 {
+//	auto D6d4 = firy::gFiry->openImageFile<firy::images::cADF>("empty_ffs.adf");
 	//auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
-	//auto newImage = createTestImage_InjectRaws<firy::images::cADF>();
-	//testImage(newImage);
+	auto newImage = createTestImage_InjectRaws<firy::images::cADF>();
+	testImage(newImage);
+	newImage->sourceSave("d:\\new.adf");
 
 	//testImages();
 	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("testdisk.adf");
@@ -203,12 +205,12 @@ int main()
 		auto adf = firy::gFiry->openImageFile<firy::images::cADF>("mine/Robs_Workbench2.0.adf");
 		auto path = adf->filesystemPath("/");
 
-		int year, month, days;
+		//int year, month, days;
 
-		firy::images::adf::convertDaysToDate(adf->mRootBlock->days, &year, &month, &days);
+		//firy::images::adf::convertDaysToDate(adf->mRootBlock->days, &year, &month, &days);
 
-		std::cout << "Year: " << year << " Month: " << month << " Day: " << days << "\n";
-		std::cout << "Label: " << adf->filesystemNameGet() << "\n";
+		//std::cout << "Year: " << year << " Month: " << month << " Day: " << days << "\n";
+		//std::cout << "Label: " << adf->filesystemNameGet() << "\n";
 
 		for (auto& entry : path->mNodes) {
 			std::cout << entry->nameGet() << "\n";

@@ -30,6 +30,8 @@ namespace firy {
 		 */
 		bool cInterface::chunkPrepare(size_t pSize) {
 			size_t index = 0;
+			mBuffers.clear();
+			mSourceSize = pSize;
 
 			while (pSize) {
 				auto chunk = std::make_shared<tBuffer>();
@@ -43,6 +45,7 @@ namespace firy {
 				mBuffers.insert({ index++, chunk });
 				pSize -= chunkSize;
 			}
+
 
 			dirty();
 			return true;

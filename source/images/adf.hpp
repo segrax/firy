@@ -3,12 +3,13 @@ namespace firy {
 		namespace adf {
 
 			void convertDaysToDate(int32_t days, int* yy, int* mm, int* dd);
-
+			void convertTimeToAmigaTime(struct sDateTime dt, int32_t* day, int32_t* min, int32_t* ticks);
+			
 			const size_t HT_SIZE = 72;
 			const size_t BM_SIZE = 25;
-			const size_t MAX_DATABLK = 72;
-			const size_t MAXNAMELEN = 30;
-			const size_t MAXCMMTLEN = 79;
+			const size_t gDataBlocksMax = 72;
+			const size_t gFilenameMaximumLength = 30;
+			const size_t gCommentMaximumLength = 79;
 
 			enum eFlags {
 				FFS = 1,
@@ -47,7 +48,7 @@ namespace firy {
 				/*1a8*/	int32_t	cMins;
 				/*1ac*/	int32_t	cTicks;
 				/*1b0*/	char	nameLen;
-				/*1b1*/	char 	diskName[MAXNAMELEN + 1];
+				/*1b1*/	char 	diskName[gFilenameMaximumLength + 1];
 				char	r2[8];
 				/*1d8*/	int32_t	days;		/* last access : days after 1 jan 1978 */
 				/*1dc*/	int32_t	mins;		/* hours and minutes in minutes */
@@ -71,13 +72,13 @@ namespace firy {
 				/*140*/	int32_t	access;	/* bit0=del, 1=modif, 2=write, 3=read */
 				/*144*/	int32_t	byteSize;
 				/*148*/	char	commLen;
-				/*149*/	char	comment[MAXCMMTLEN + 1];
-				char	r3[91 - (MAXCMMTLEN + 1)];
+				/*149*/	char	comment[gCommentMaximumLength + 1];
+				char	r3[91 - (gCommentMaximumLength + 1)];
 				/*1a4*/	int32_t	days;
 				/*1a8*/	int32_t	mins;
 				/*1ac*/	int32_t	ticks;
 				/*1b0*/	char	nameLen;
-				/*1b1*/	char	name[MAXNAMELEN + 1];
+				/*1b1*/	char	name[gFilenameMaximumLength + 1];
 				int32_t	r4;
 				/*1d4*/	int32_t	realEntry;
 				/*1d8*/	int32_t	nextLink;
@@ -95,19 +96,19 @@ namespace firy {
 				/*00c*/	int32_t	dataSize;	/* == 0 */
 				/*010*/	int32_t	firstData;
 				/*014*/	ULONG	checkSum;
-				/*018*/	int32_t	dataBlocks[MAX_DATABLK];
+				/*018*/	int32_t	dataBlocks[gDataBlocksMax];
 				/*138*/	int32_t	r1;
 				/*13c*/	int32_t	r2;
 				/*140*/	int32_t	access;	/* bit0=del, 1=modif, 2=write, 3=read */
 				/*144*/	uint32_t	byteSize;
 				/*148*/	char	commLen;
-				/*149*/	char	comment[MAXCMMTLEN + 1];
-				char	r3[91 - (MAXCMMTLEN + 1)];
+				/*149*/	char	comment[gCommentMaximumLength + 1];
+				char	r3[91 - (gCommentMaximumLength + 1)];
 				/*1a4*/	int32_t	days;
 				/*1a8*/	int32_t	mins;
 				/*1ac*/	int32_t	ticks;
 				/*1b0*/	char	nameLen;
-				/*1b1*/	char	fileName[MAXNAMELEN + 1];
+				/*1b1*/	char	fileName[gFilenameMaximumLength + 1];
 				int32_t	r4;
 				/*1d4*/	int32_t	real;		/* unused == 0 */
 				/*1d8*/	int32_t	nextLink;	/* link chain */
@@ -125,7 +126,7 @@ namespace firy {
 				/*00c*/	int32_t	dataSize;	/* == 0 */
 				/*010*/	int32_t	firstData;	/* == 0 */
 				/*014*/	ULONG	checkSum;
-				/*018*/	int32_t	dataBlocks[MAX_DATABLK];
+				/*018*/	int32_t	dataBlocks[gDataBlocksMax];
 				int32_t	r[45];
 				int32_t	info;		/* == 0 */
 				int32_t	nextSameHash;	/* == 0 */
@@ -160,16 +161,12 @@ namespace firy {
 				int year, month, days, hour, mins, secs;
 
 				sDateTime();
-				void reset() {
-					year = month = days = hour = mins = secs = 0;
-				}
+				void reset();
 			};
 
 			struct sEntry {
-				int mType;
-				size_t mSizeInSectors;
+				int mType;	// sectype
 				tBlock mBlock;
-				tBlock mReal;
 				tBlock mParent;
 				tBlock mNextSameHash;
 				std::string mComment;
@@ -178,13 +175,10 @@ namespace firy {
 
 				sEntry() {
 					mType = 0;
-					mSizeInSectors = 0;
 					mBlock = 0;
-					mReal = 0;
 					mParent = 0;
 					mNextSameHash = 0;
-					access = -1;
-					mDate.reset();
+					access = 0;
 				}
 
 				uint8_t toUpperIntl(const uint8_t c) {
@@ -200,7 +194,7 @@ namespace firy {
 					unsigned int i;
 					uint8_t upper;
 
-					len = hash = min((uint32_t) pName.size(), MAXNAMELEN);
+					len = hash = min((uint32_t) pName.size(), gFilenameMaximumLength);
 					for (i = 0; i < len; i++) {
 						if (pInternational)
 							upper = toUpperIntl(pName[i]);
@@ -215,6 +209,13 @@ namespace firy {
 				virtual uint32_t getNameHash(const bool pInternational) = 0;
 			};
 
+			struct sFile;
+			struct sDir;
+
+			typedef std::shared_ptr<sFile> spFile;
+			typedef std::shared_ptr<sDir> spDir;
+			typedef std::shared_ptr<sEntry> spEntry;
+
 			/**
 			 * Representation of a file
 			 */
@@ -227,6 +228,8 @@ namespace firy {
 				virtual uint32_t getNameHash(const bool pInternational) {
 					return getHashValue(nameGet(), pInternational);
 				}
+
+				void setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent);
 			};
 
 			/**
@@ -241,11 +244,11 @@ namespace firy {
 				virtual uint32_t getNameHash(const bool pInternational) {
 					return getHashValue(nameGet(), pInternational);
 				}
+
+				void setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent);
 			};
 
-			typedef std::shared_ptr<sFile> spFile;
-			typedef std::shared_ptr<sDir> spDir;
-			typedef std::shared_ptr<sEntry> spEntry;
+
 		}
 
 		/**
@@ -265,9 +268,12 @@ namespace firy {
 			}
 
 			virtual std::string filesystemNameGet() const override;
+			virtual void filesystemNameSet(const std::string& pName) override;
+
+			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
 			virtual bool filesystemSave() override;
-			virtual bool filesystemSaveNode(spNode pNode, adf::spDir pParent);
+
 			virtual spBuffer filesystemRead(spNode pFile) override;
 			virtual bool filesystemRemove(spNode pFile) override;
 
@@ -291,25 +297,34 @@ namespace firy {
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
 			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
+
 			virtual bool filesystemChainLoad(spFile pFile) override;
 			virtual bool filesystemBitmapLoad() override;
 			virtual bool filesystemBitmapSave() override;
+
+			virtual bool filesystemSaveNode(spNode pNode, adf::spDir pParent);
+			virtual bool filesystemSaveFile(adf::spFile pFile, adf::spDir pParent);
+			virtual bool filesystemSaveDir(adf::spDir pNode, adf::spDir pParent);
+
+			template <class tBlockType> bool filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer);
 
 		private:
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock);
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoadNoCheck(const size_t pBlock);
 			template <class tBlockType> bool blockSave(const size_t pBlock, std::shared_ptr<tBlockType> pData);
+			template <class tBlockType> bool blockSaveNoCheck(const size_t pBlock, std::shared_ptr<tBlockType> pData);
 
 			template <class tBlockType> void blockSwapEndian(std::shared_ptr<tBlockType> pBlock);
 
 			bool blockBootLoad();
 			bool blockRootLoad();
+			bool blockCalculate();
 
 			spNode entryLoad(const tBlock pBlock);
 			bool entrysLoad(adf::spDir pNode);
-			int32_t entryGet(adf::spDir pDir, spNode pEntry);
+			int32_t entryCreate(adf::spDir pDir, spNode pEntry);
 
-		public:
+		private:
 			std::shared_ptr<adf::sBootBlock> mBootBlock;
 			std::shared_ptr<adf::sRootBlock> mRootBlock;
 
