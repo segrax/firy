@@ -117,5 +117,21 @@ namespace firy {
 		spFile cInterface::filesystemFile(const std::string& pPath) {
 			return std::dynamic_pointer_cast<sFile>(filesystemNode(pPath));
 		}
+
+		/**
+		 * Get the name of the filesystem (Label)
+		 */
+		std::string cInterface::filesystemNameGet() const { 
+			return mFsName;
+		}
+
+		/**
+		 * Set the name of the filesystem
+		 */
+		void cInterface::filesystemNameSet(const std::string& pName) {
+			mFsName = pName;
+			dirty();
+		}
+
 	}
 }

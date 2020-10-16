@@ -143,7 +143,6 @@ template <class tType> auto createTestImage_InjectRaws() {
 
 int main()
 {
-//	auto D6d4 = firy::gFiry->openImageFile<firy::images::cADF>("empty_ffs.adf");
 	//auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
 	auto newImage = createTestImage_InjectRaws<firy::images::cADF>();
 	testImage(newImage);

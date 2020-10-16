@@ -10,11 +10,12 @@ namespace firy {
 			const size_t gDataBlocksMax = 72;
 			const size_t gFilenameMaximumLength = 30;
 			const size_t gCommentMaximumLength = 79;
+			const size_t gOFSBlockSize = 488;
 
 			enum eFlags {
-				FFS = 1,
-				INTL = 2,
-				DIRCACHE = 4
+				FFS = 1,				// AmigaDos 2.04+
+				INTL = 2,				// AmigaDos 3
+				DIRCACHE = 4			// AmigaDos 3 Directory cache
 			};
 
 			enum eType {
@@ -26,7 +27,8 @@ namespace firy {
 
 			// These are big endian
 			struct sBootBlock {
-				uint8_t	 dosType[4];
+				uint8_t	 dosType[3];
+				uint8_t  dosFlags;
 				uint32_t checkSum;
 				int32_t	 rootBlock;
 				uint8_t	 data[500 + 512];
@@ -142,7 +144,7 @@ namespace firy {
 				/*00c*/	int32_t	dataSize;	/* <= 0x1e8 */
 				/*010*/	int32_t	nextData;	/* next data block */
 				/*014*/	ULONG	checkSum;
-				/*018*/	UCHAR	data[488];
+				/*018*/	UCHAR	data[gOFSBlockSize];
 				/*200*/
 			};
 
@@ -166,7 +168,7 @@ namespace firy {
 
 			struct sEntry {
 				int mType;	// sectype
-				tBlock mBlock;
+				tBlock mBlockNumber;
 				tBlock mParent;
 				tBlock mNextSameHash;
 				std::string mComment;
@@ -175,12 +177,15 @@ namespace firy {
 
 				sEntry() {
 					mType = 0;
-					mBlock = 0;
+					mBlockNumber = 0;
 					mParent = 0;
 					mNextSameHash = 0;
 					access = 0;
 				}
 
+				/**
+				 * To Upper for international characters
+				 */
 				uint8_t toUpperIntl(const uint8_t c) {
 					return (c >= 'a' && c <= 'z') || 
 						   (c >= 224 && c <= 254 && c != 247) ? c - ('a' - 'A') : c;
@@ -202,8 +207,7 @@ namespace firy {
 							upper = toupper(pName[i]);
 						hash = (hash * 13 + upper) & 0x7ff;
 					}
-					hash = hash % HT_SIZE;
-					return(hash);
+					return (hash % HT_SIZE);
 				}
 
 				virtual uint32_t getNameHash(const bool pInternational) = 0;
@@ -267,9 +271,6 @@ namespace firy {
 				return { "adf", "hdf" };
 			}
 
-			virtual std::string filesystemNameGet() const override;
-			virtual void filesystemNameSet(const std::string& pName) override;
-
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
 			virtual bool filesystemSave() override;
@@ -279,6 +280,12 @@ namespace firy {
 
 			adf::spFile filesystemFileCreate(const std::string& pName = "") {
 				auto res = std::make_shared<adf::sFile>(weak_from_this(), pName);
+				res->dirty(true);
+				return res;
+			}
+
+			adf::spDir filesystemDirCreate(const std::string& pName = "") {
+				auto res =  std::make_shared<adf::sDir>(weak_from_this(), pName);
 				res->dirty(true);
 				return res;
 			}
@@ -294,6 +301,8 @@ namespace firy {
 
 			adf::eType diskType() const;
 
+			bool isFFS() const { if (mBootBlock) return (mBootBlock->dosFlags & adf::eFlags::FFS) ; return false; }
+
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
 			virtual uint32_t blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte = 20);
@@ -306,12 +315,15 @@ namespace firy {
 			virtual bool filesystemSaveFile(adf::spFile pFile, adf::spDir pParent);
 			virtual bool filesystemSaveDir(adf::spDir pNode, adf::spDir pParent);
 
-			template <class tBlockType> bool filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer);
+			template <class tBlockType> bool filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer, size_t pSequenceNumber = 0);
 
 		private:
+			virtual spBuffer filesystemReadOFS(adf::spFile pFile);
+			virtual spBuffer filesystemReadFFS(adf::spFile pFile);
+
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoad(const size_t pBlock);
 			template <class tBlockType> std::shared_ptr<tBlockType> blockLoadNoCheck(const size_t pBlock);
-			template <class tBlockType> bool blockSave(const size_t pBlock, std::shared_ptr<tBlockType> pData);
+			template <class tBlockType> bool blockSaveChecksum(const size_t pBlock, std::shared_ptr<tBlockType> pData);
 			template <class tBlockType> bool blockSaveNoCheck(const size_t pBlock, std::shared_ptr<tBlockType> pData);
 
 			template <class tBlockType> void blockSwapEndian(std::shared_ptr<tBlockType> pBlock);

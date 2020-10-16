@@ -90,8 +90,6 @@ namespace firy {
 				return { "d64" };
 			}
 
-			virtual std::string filesystemNameGet() const override;
-			virtual void filesystemNameSet(const std::string& pName) override;
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
 			virtual bool filesystemSave() override;
@@ -131,7 +129,6 @@ namespace firy {
 			uint8_t		mDosVersion;
 			uint16_t	mDosType;
 			uint16_t	mDiskID;
-			std::string mLabel;
 		};
 
 	}

@@ -30,20 +30,6 @@ namespace firy {
 		}
 
 		/**
-		 * Get the name of the disk
-		 */
-		std::string cD64::filesystemNameGet() const {
-			return mLabel;
-		}
-
-		/**
-		 * 
-		 */
-		void cD64::filesystemNameSet(const std::string& pName) {
-			mLabel = pName;
-		}
-
-		/**
 		 * Create an empty filesystem
 		 */
 		bool cD64::filesystemCreate() {
@@ -53,7 +39,6 @@ namespace firy {
 			mDosVersion = 0x21;
 			mDiskID = 'FI';
 			mDosType = '2A';
-			mLabel = "";
 
 			tTrackSector ts = { 1, 4 };
 			mBam.clear();
@@ -441,7 +426,7 @@ namespace firy {
 			mDiskID = block->getWordBE(0xA2);
 			mDosType = block->getWordBE(0xA5);
 
-			mLabel = block->getString(0x90, 16, 0xA0); 
+			mFsName = block->getString(0x90, 16, 0xA0); 
 
 			// Load the BAM (We are abusing the sector field to hold the byte offset
 			tTrackSector ts = { 1, 4 };
@@ -483,7 +468,7 @@ namespace firy {
 			block->putByte(0xA4, 0xA0);
 			block->putWordBE(0xA5, mDosType);
 
-			auto str = mLabel;
+			auto str = mFsName;
 			str.resize(16, (char)0xA0);
 
 			block->putString(0x90, str);

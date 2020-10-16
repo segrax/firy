@@ -19,8 +19,8 @@ namespace firy {
 		public:
 			cInterface();
 
-			virtual std::string filesystemNameGet() const { return ""; }
-			virtual void filesystemNameSet(const std::string& pName) { return; }
+			virtual std::string filesystemNameGet() const;
+			virtual void filesystemNameSet(const std::string& pName);
 
 			virtual spNode filesystemNode(const std::string& pPath);
 			virtual spDirectory filesystemPath(const std::string& pPath = "/");
