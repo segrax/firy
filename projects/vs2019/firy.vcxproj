@@ -127,34 +127,37 @@
     <ClInclude Include="..\..\source\access\access.hpp" />
     <ClInclude Include="..\..\source\access\tracks.hpp" />
     <ClInclude Include="..\..\source\buffer.hpp" />
-    <ClInclude Include="..\..\source\debug.hpp" />
+    <ClInclude Include="..\..\source\console.hpp" />
     <ClInclude Include="..\..\source\filesystem\directory.hpp" />
     <ClInclude Include="..\..\source\filesystem\file.hpp" />
     <ClInclude Include="..\..\source\filesystem\filesystem.hpp" />
     <ClInclude Include="..\..\source\filesystem\node.hpp" />
     <ClInclude Include="..\..\source\firy.hpp" />
+    <ClInclude Include="..\..\source\helpers\datetime.hpp" />
     <ClInclude Include="..\..\source\helpers\dirty.hpp" />
     <ClInclude Include="..\..\source\images\adf.hpp" />
     <ClInclude Include="..\..\source\images\d64.hpp" />
     <ClInclude Include="..\..\source\images\image.hpp" />
     <ClInclude Include="..\..\source\images\fat.hpp" />
+    <ClInclude Include="..\..\source\options.hpp" />
     <ClInclude Include="..\..\source\resources.hpp" />
-    <ClInclude Include="..\..\source\sources\file.hpp" />
+    <ClInclude Include="..\..\source\sources\sourcefile.hpp" />
     <ClInclude Include="..\..\source\sources\source.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\access\blocks.cpp" />
     <ClCompile Include="..\..\source\access\tracks.cpp" />
     <ClCompile Include="..\..\source\buffer.cpp" />
-    <ClCompile Include="..\..\source\debug.cpp" />
+    <ClCompile Include="..\..\source\console.cpp" />
     <ClCompile Include="..\..\source\filesystem\filesystem.cpp" />
     <ClCompile Include="..\..\source\firy.cpp" />
     <ClCompile Include="..\..\source\images\adf.cpp" />
     <ClCompile Include="..\..\source\images\d64.cpp" />
     <ClCompile Include="..\..\source\images\image.cpp" />
     <ClCompile Include="..\..\source\images\fat.cpp" />
+    <ClCompile Include="..\..\source\options.cpp" />
     <ClCompile Include="..\..\source\resources.cpp" />
-    <ClCompile Include="..\..\source\sources\file.cpp" />
+    <ClCompile Include="..\..\source\sources\sourcefile.cpp" />
     <ClCompile Include="..\..\source\sources\source.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

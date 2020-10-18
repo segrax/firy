@@ -12,29 +12,18 @@
 bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::string& pBaseFileName) {
 
 	for (auto& block : pDisk->blocksGetFree()) {
-		auto data = pDisk->blockRead(block);
+		auto data = pDisk->blockRead(block.block());
 		if (!data) {
 
 			return false;
 		}
-		bool found = false;
 
-		for (auto bb : *data) {
-			if (bb) {
-				if(bb != 0xF6)
-					found = true;
-				break;
-			}
-		}
+		std::stringstream filename;
+		filename << pBaseFileName << "_";
+		filename << std::setw(4) << block.block();
+		filename << ".raw";
 
-		if (found) {
-			std::stringstream filename;
-			filename << pBaseFileName << "_";
-			filename << std::setw(4) << block;
-			filename << ".raw";
-
-			firy::gResources->FileSave(filename.str(), data);
-		}
+		firy::gResources->FileSave(filename.str(), data);
 	}
 
 	return true;
@@ -143,13 +132,17 @@ template <class tType> auto createTestImage_InjectRaws() {
 
 int main()
 {
-	//auto newImage = createTestImage_InjectRaws<firy::images::cD64>();
-	auto newImage = createTestImage_InjectRaws<firy::images::cADF>();
-	testImage(newImage);
-	newImage->sourceSave("d:\\new.adf");
+	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("D:\\Projects\\directory_opus_firy_plugin\\library\\firy\\test\\images\\amiga\\testdisk.adf");
+	testImage(D64);
+	auto newImageD = createTestImage_InjectRaws<firy::images::cD64>();
+	testImage(newImageD);
 
-	//testImages();
-	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("testdisk.adf");
+	auto newImageA = createTestImage_InjectRaws<firy::images::cADF>();
+	testImage(newImageA);
+
+	testImages();
+	return 0;
+
 	auto path = D64->filesystemPath();
 
 	//auto a = std::make_shared<firy::images::d64::sFile>(D64->weak_from_this(), "TEST");
@@ -264,8 +257,7 @@ int main()
 
 
 	{
-		auto FAT = std::make_shared<firy::images::cFAT>(firy::gFiry->openLocalFile("mine/Win98.img"));
-		FAT->filesystemLoad();
+		auto FAT = firy::gFiry->openImageFile<firy::images::cFAT>("mine/Win98.img");
 		auto path = FAT->filesystemPath("/");
 
 		if (path) {

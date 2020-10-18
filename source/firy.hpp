@@ -4,23 +4,35 @@
 #include <map>
 #include <algorithm>
 #include <string>
+#include <thread>
+#include <mutex>
 
 #ifdef _MSC_VER
 #include <Windows.h>
 #endif
 
 namespace firy {
-	typedef size_t tSize;
+	namespace images {
+		class cImage;
+	}
+
+	using tSize = size_t;
+	using tLockGuard = std::lock_guard<std::mutex>;
+
+	using spImage = std::shared_ptr<images::cImage>;
+	using pImage = images::cImage*;
 }
 
+#include "options.hpp"
 #include "helpers/dirty.hpp"
+#include "helpers/datetime.hpp"
 
-#include "debug.hpp"
+#include "console.hpp"
 #include "buffer.hpp"
 
 #include "resources.hpp"
 #include "sources/source.hpp"
-#include "sources/file.hpp"
+#include "sources/sourcefile.hpp"
 
 #include "access/access.hpp"
 #include "access/blocks.hpp"
@@ -36,6 +48,7 @@ namespace firy {
 namespace firy {
 
 	extern std::shared_ptr<cResources> gResources;
+	extern std::shared_ptr<cOptions> gOptionsDefault;
 
 	inline uint16_t readLEWord(const void* buffer) {
 		const uint16_t* wordBytes = (const uint16_t*)buffer;
@@ -95,7 +108,7 @@ namespace firy {
 		spSource createLocalFile(const std::string& pFilename);
 		spSource openLocalFile(const std::string& pFilename);
 		spImage openImage(const std::string& pFilename);
-		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, const bool pIgnoreValid = false);
+		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, spOptions pOptions = gOptionsDefault, const bool pIgnoreValid = false);
 		
 		template <class tImageType> std::shared_ptr<tImageType> createImageFile(const std::string& pFilename) {
 			auto image = std::make_shared<tImageType>(firy::gFiry->createLocalFile(pFilename));
@@ -107,6 +120,7 @@ namespace firy {
 			return image;
 		}
 
+		static std::vector<std::string> getKnownExtensions();
 	};
 
 	/**

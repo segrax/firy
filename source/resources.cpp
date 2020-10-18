@@ -70,6 +70,7 @@ namespace firy {
 		fileStream->close();
 		delete fileStream;
 
+		fileBuffer->dirty(false);
 		// All done ;)
 		return fileBuffer;
 	}

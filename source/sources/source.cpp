@@ -46,8 +46,6 @@ namespace firy {
 				pSize -= chunkSize;
 			}
 
-
-			dirty();
 			return true;
 		}
 
@@ -133,7 +131,6 @@ namespace firy {
 				mainoffset += size;
 			}
 			
-			dirty();
 			pBuffer->dirty(false);
 			return true;
 		}
@@ -169,7 +166,6 @@ namespace firy {
 				mainoffset += size;
 			}
 
-			dirty();
 			return true;
 		}
 
@@ -181,12 +177,14 @@ namespace firy {
 		};
 
 		/**
-		 * Get a pointer to a buffer chunk
+		 * Do we hold dirty buffers
 		 */
-		uint8_t* cInterface::sourceChunkPtr(const size_t pOffset) {
-			spBuffer buffer = chunk(pOffset);
-
-			return (buffer->data() + (pOffset % mSourceChunkSize));
+		bool cInterface::hasDirtyBuffers() const {
+			for (auto& buffer : mBuffers) {
+				if (buffer.second->isDirty())
+					return true;
+			}
+			return false;
 		}
 
 	}

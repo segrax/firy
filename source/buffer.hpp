@@ -1,10 +1,10 @@
 namespace firy {
 
 	class cBuffer;
-	typedef cBuffer tBuffer;
-	typedef std::shared_ptr<tBuffer> spBuffer;
+	using tBuffer = cBuffer;
+	using spBuffer = std::shared_ptr<tBuffer>;
 
-	class cBuffer : public firy::helpers::cDirty, public std::vector<uint8_t> {
+	class cBuffer : public firy::helpers::cDirty, protected std::vector<uint8_t> {
 	public:
 
 		spBuffer takeBytes(const size_t pBytes);
@@ -22,6 +22,8 @@ namespace firy {
 		void pushWord(const uint16_t pWord);
 		void pushDWord(const uint32_t pDWord);
 		void pushBuffer(std::shared_ptr<cBuffer> pBuffer);
+		bool pushBuffer(std::shared_ptr<cBuffer> pBuffer, const size_t pSourceOffset, const size_t pMax);
+		void pushBuffer(std::shared_ptr<cBuffer> pBuffer, const size_t pMax);
 		void pushBuffer(const uint8_t* pBuffer, const size_t pSize);
 
 		void putByte(const size_t pOffset, uint8_t pByte);
@@ -42,14 +44,24 @@ namespace firy {
 		bool write(const size_t pOffset, const uint8_t* pBuffer, const size_t pSize);
 
 		void resize(const size_type pNewSize) {
+			tLockGuard lock(mLock);
 			std::vector<uint8_t>::resize(pNewSize);
 			dirty();
 		}
 
+		/**
+		 * These are wrappers and should probably be replaced/not used
+		 */
+		uint8_t& at(const size_t pOffset)  { return std::vector<uint8_t>::at(pOffset); }
+		const uint8_t& at(const size_t pOffset) const { return std::vector<uint8_t>::at(pOffset); }
+		uint8_t* data() { return &at(0); }
+		void clear() { tLockGuard lock(mLock); std::vector<uint8_t>::clear(); }
+		size_t size() const { return std::vector<uint8_t>::size(); }
+		
 	private:
 		inline void assertOffset(const size_t pOffset, const size_t pBytes = 1) const;
 		inline void expandOffset(const size_t pOffset, const size_t pBytes = 1);
-
+		mutable std::mutex mLock;
 	};
 
 }

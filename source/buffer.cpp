@@ -1,8 +1,4 @@
-#include <vector>
-#include <memory>
-#include <string>
-#include "helpers/dirty.hpp"
-#include "buffer.hpp"
+#include "firy.hpp"
 
 namespace firy {
 
@@ -10,6 +6,7 @@ namespace firy {
 	 * Take bytes off the start of the vector
 	 */
 	spBuffer cBuffer::takeBytes(const size_t pBytes) {
+		tLockGuard lock(mLock);
 		spBuffer buffer = std::make_shared<tBuffer>();
 
 		buffer->resize(pBytes);
@@ -22,7 +19,11 @@ namespace firy {
 		return buffer;
 	}
 
+	/**
+	 * Read a string from the buffer
+	 */
 	std::string cBuffer::getString(const size_t pOffset, const size_t pLengthMax, const uint8_t pTerminator) {
+		tLockGuard lock(mLock);
 		std::string tmpString;
 		const uint8_t* buffer = reinterpret_cast<const uint8_t*>(&at(pOffset));
 
@@ -32,11 +33,19 @@ namespace firy {
 		return tmpString;
 	}
 
+	/**
+	 * Ensure an offset and size is valid
+	 */
 	inline void cBuffer::assertOffset(const size_t pOffset, const size_t pBytes) const {
 		if ((pOffset + pBytes) > size())
 			throw std::exception("Read past end of buffer");
 	}
 
+	/**
+	 * Resize the buffer
+	 *
+	 * LOCK BEFORE CALLING
+	 */
 	inline void cBuffer::expandOffset(const size_t pOffset, const size_t pBytes) {
 		size_t newSize = pOffset + pBytes;
 		if (newSize <= size())
@@ -94,12 +103,20 @@ namespace firy {
 		return uint32_t((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + (bytes[3]));
 	}
 
+	/**
+	 *
+	 */
 	void cBuffer::pushByte(const uint8_t pByte) {
+		tLockGuard lock(mLock);
 		dirty(true);
 		push_back(pByte);
 	}
 
+	/**
+	 *
+	 */
 	void cBuffer::pushWord(const uint16_t pWord) {
+		tLockGuard lock(mLock);
 		dirty(true);
 		const uint8_t* bytes = (const uint8_t*)& pWord;
 
@@ -108,6 +125,7 @@ namespace firy {
 	}
 
 	void cBuffer::pushDWord(const uint32_t pDWord) {
+		tLockGuard lock(mLock);
 		dirty(true);
 		const uint8_t* bytes = (const uint8_t*)& pDWord;
 
@@ -117,23 +135,60 @@ namespace firy {
 		push_back(bytes[3]);
 	}
 
+	/**
+	 * Push an entire buffer
+	 */
 	void cBuffer::pushBuffer(std::shared_ptr<cBuffer> pBuffer) {
+		tLockGuard lock(mLock);
+		tLockGuard lock2(pBuffer->mLock);
 		dirty(true);
 		insert(end(), pBuffer->begin(), pBuffer->end());
 	}
 
+	/**
+	 * Push a buffer, starting at an offset in the source, for a max number of bytes
+	 */
+	bool cBuffer::pushBuffer(std::shared_ptr<cBuffer> pBuffer, const size_t pSourceOffset, const size_t pMax) {
+		tLockGuard lock(mLock);
+		tLockGuard lock2(pBuffer->mLock);
+		dirty(true);
+		auto beginIT = pBuffer->begin() + pSourceOffset;
+
+		if (beginIT + pMax > pBuffer->end())
+			return false;
+
+		insert(end(), beginIT, beginIT + pMax);
+		return true;
+	}
+
+	/**
+	 * Push a buffer, starting at the beginning of source, for a max number of bytes
+	 */
+	void cBuffer::pushBuffer(std::shared_ptr<cBuffer> pBuffer, const size_t pMax) {
+		tLockGuard lock(mLock);
+		tLockGuard lock2(pBuffer->mLock);
+		if (pMax > pBuffer->size()) {
+			return;
+		}
+		dirty(true);
+		insert(end(), pBuffer->begin(), pBuffer->begin() + pMax);
+	}
+
 	void cBuffer::pushBuffer(const uint8_t* pBuffer, const size_t pSize) {
+		tLockGuard lock(mLock);
 		dirty(true);
 		insert(end(), pBuffer, pBuffer + pSize);
 	}
 
 	void cBuffer::putByte(const size_t pOffset, uint8_t pByte) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset);
 		dirty(true);
 		at(pOffset) = pByte;
 	}
 
 	void cBuffer::putWordLE(const size_t pOffset, uint16_t pByte) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, 2);
 		dirty(true);
 		uint16_t* bytes = reinterpret_cast<uint16_t*>(&at(pOffset));
@@ -141,6 +196,7 @@ namespace firy {
 	}
 
 	void cBuffer::putDWordLE(const size_t pOffset, uint32_t pByte) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, 4);
 		dirty(true);
 		uint32_t* bytes = reinterpret_cast<uint32_t*>(&at(pOffset));
@@ -148,6 +204,7 @@ namespace firy {
 	}
 
 	void cBuffer::putWordBE(const size_t pOffset, uint16_t pByte) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, 2);
 		dirty(true);
 		uint8_t* bytes = reinterpret_cast<uint8_t*>(&at(pOffset));
@@ -156,6 +213,7 @@ namespace firy {
 	}
 
 	void cBuffer::putDWordBE(const size_t pOffset, uint32_t pByte) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, 4);
 		dirty(true);
 		uint8_t* bytes = reinterpret_cast<uint8_t*>(&at(pOffset));
@@ -166,6 +224,7 @@ namespace firy {
 	}
 
 	void cBuffer::putBuffer(const size_t pOffset, std::shared_ptr<cBuffer> pBuffer) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, pBuffer->size());
 		dirty(true);
 		auto buf = data() + pOffset;
@@ -173,13 +232,19 @@ namespace firy {
 	}
 
 	void cBuffer::putString(const size_t pOffset, const std::string& pBuffer) {
+		tLockGuard lock(mLock);
 		expandOffset(pOffset, pBuffer.size());
 		dirty(true);
 		auto buf = data() + pOffset;
 		memcpy(buf, pBuffer.data(), pBuffer.size());
 	}
 
+	/**
+	 * Compare two buffers
+	 */
 	bool cBuffer::operator==(const cBuffer& pBuffer) {
+		tLockGuard lock(mLock);
+		tLockGuard lock2(pBuffer.mLock);
 		if (size() != pBuffer.size())
 			return false;
 		return std::equal(begin(), end(), pBuffer.begin());
@@ -193,7 +258,8 @@ namespace firy {
 	 * Write to a buffer
 	 */
 	bool cBuffer::write(const size_t pOffset, const spBuffer pBuffer) {
-		//assertOffset(pOffset, pBuffer->size());
+		tLockGuard lock(mLock);
+		tLockGuard lock2(pBuffer->mLock);
 		size_t maxSize = size() - pOffset;
 		if (maxSize < pBuffer->size())
 			return false;
@@ -203,7 +269,12 @@ namespace firy {
 		return true;
 	}
 
+	/**
+	 *
+	 */
 	bool cBuffer::write(const size_t pOffset, const spBuffer pBuffer, const size_t pOffsetStart, const size_t pSize) {
+		tLockGuard lock(mLock); 
+		tLockGuard lock2(pBuffer->mLock);
 		size_t maxSize = size() - pOffset;
 		if (maxSize < pBuffer->size())
 			return false;
@@ -217,7 +288,11 @@ namespace firy {
 		return true;
 	}
 
+	/**
+	 *
+	 */
 	bool cBuffer::write(const size_t pOffset, const uint8_t* pBuffer, const size_t pSize) {
+		tLockGuard lock(mLock); 
 		size_t maxSize = size() - pOffset;
 		if (maxSize < pSize)
 			return false;

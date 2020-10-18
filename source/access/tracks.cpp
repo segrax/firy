@@ -31,7 +31,7 @@ namespace firy {
 			size_t offset = 0;
 
 			// Invalid track?
-			if (pTrack <= 0 || pTrack > trackCount())
+			if (!trackValid(pTrack))
 				return 0;
 
 			// Loop through each track, and add up
@@ -63,6 +63,9 @@ namespace firy {
 		 * Read a sector
 		 */
 		spBuffer cTracks::sectorRead(const tTrackSector pTS) {
+			if (!sectorValid(pTS))
+				return 0;
+
 			return sourceBufferCopy(sectorOffset(pTS), sectorSize(pTS.first));
 		}
 

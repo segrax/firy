@@ -25,6 +25,7 @@ namespace firy {
 		sNode::sNode(wpFilesystem pFilesystem, const std::string& pName) {
 			mFilesystem = pFilesystem;
 			mName = pName;
+			mSizeInBytes = 0;
 		}
 
 		/**
@@ -38,6 +39,9 @@ namespace firy {
 		 * Remove
 		 */
 		bool sNode::remove() {
+			if (!mParent.expired())
+				mParent.lock()->nodeRemove(shared_from_this());
+
 			mFilesystem.lock()->filesystemRemove(shared_from_this());
 			return mFilesystem.lock()->filesystemSave();
 		}
@@ -83,6 +87,56 @@ namespace firy {
 			return 0;
 		}
 
+		/**
+		 * Add to the file system
+		 */
+		bool sDirectory::add(spNode pNode) {
+			nodeAdd(pNode);
+			mFilesystem.lock()->dirty();
+			dirty();
+			return mFilesystem.lock()->filesystemSave();
+		}
+
+		/**
+		 * Remove from the file system
+		 */
+		bool sDirectory::remove() {
+			dirty();
+			for (auto& node : mNodes) {
+				node->mParent.reset();
+				if (!node->remove())
+					return false;
+			}
+
+			mNodes.clear();
+			return sNode::remove();
+		}
+
+		/**
+		 * Add an existing node to the directory (No FS calls)
+		 */
+		void sDirectory::nodeAdd(spNode pNode) {
+			pNode->mParent = std::dynamic_pointer_cast<sDirectory>(shared_from_this());
+
+			mNodes.push_back(pNode);
+		}
+
+		/**
+		 * Remove a node from this directory (no FS Calls)
+		 */
+		void sDirectory::nodeRemove(spNode pNode) {
+			for (auto it = mNodes.begin(); it != mNodes.end(); ++it) {
+				if (*it == pNode) {
+
+					mNodes.erase(it);
+					return;
+				}
+			}
+		}
+
+		/**
+		 *
+		 */
 		cInterface::cInterface() {
 			mFsRoot = 0;
 			mFsPathSeperator = "/";

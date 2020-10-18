@@ -3,17 +3,16 @@
 #include <iostream>
 #include <time.h>
 #include <sstream>
-#include "debug.hpp"
+#include "console.hpp"
 
 const char* TIME_FORMAT = "%Y-%m-%dT%H:%M:%S";
 
 namespace firy {
-	cDebug::cDebug(const int pLevel) {
+	cConsole::cConsole(const int pLevel) {
 		mLevel = pLevel;
-		mDisable = false;
 	}
 
-	std::string cDebug::getTime() const {
+	std::string cConsole::getTime() const {
 		std::stringstream res;
 
 		auto t = std::time(nullptr);

@@ -190,10 +190,28 @@ namespace firy {
 		public:
 			cFAT(spSource pSource);
 
+			virtual std::string imageTypeShort() const override { return "fat"; }
+			virtual std::string imageType() const {
+				return "FAT";
+			}
+
+			static std::vector<std::string> imageExtensions() {
+				return { "img", "ima" };
+			}
+
+
 			virtual std::string filesystemNameGet() const;
+			virtual bool filesystemCreate() { gConsole->error("fat", "not implemented"); return false; }
 			virtual bool filesystemLoad();
 			virtual spBuffer filesystemRead(spNode pFile);
 			virtual bool filesystemRemove(spNode pFile) override;
+
+			spFile filesystemFileCreate(const std::string& pName = "") {
+				return filesystemNodeCreate<fat::sFile>(pName);
+			}
+			spDirectory filesystemDirectoryCreate(const std::string& pName = "") {
+				return filesystemNodeCreate<fat::sDir>(pName);
+			}
 
 			virtual bool partitionOpen(int pNumber);
 
@@ -204,30 +222,26 @@ namespace firy {
 			virtual bool blockIsFree(const tBlock pBlock) const;
 			virtual bool blockSet(const tBlock pBlock, const bool pValue) override;
 
-			virtual std::vector<tBlock> blockUse(const tBlock pTotal) override;
-			virtual bool blocksFree(const std::vector<tBlock>& pBlocks) override;
-			virtual std::vector<tBlock> blocksGetFree() const;
+			virtual std::vector<sChainEntry> blockUse(const tBlock pTotal) override;
+			virtual bool blocksFree(const std::vector<sChainEntry>& pBlocks) override;
+			virtual std::vector<sChainEntry> blocksGetFree() const;
 
 			spBuffer clusterChainReadRoot(size_t pStartBlock);
 			spBuffer clusterChainRead(size_t pCluster);
 
-			virtual std::string imageType() const {
-				return "FAT";
-			}
+			virtual size_t filesystemTotalBytesFree() override;
+			virtual size_t filesystemTotalBytesMax() override;
 
-			virtual std::vector<std::string> imageExtensions() const {
-				return { "img" };
-			}
 		protected:
 			virtual bool filesystemChainLoad(spFile pFile);
 			virtual bool filesystemBitmapLoad();
 			virtual bool filesystemBitmapSave();
+			virtual bool filesystemSaveNative() { gConsole->error("fat", "not implemented"); return false; }
 
 		private:
 			tBlock fatSectorNext(tBlock pCluster) const;
 			tBlock directorySectors(tBlock pStart) const;
 			tBlock clusterToBlock(tBlock pCluster) const;
-			bool clusterMapLoad();
 
 			spNode entryLoad(const fat::sFileEntry* pEntry, std::vector<fat::sFileLongNameEntry*>& pLongEntries);
 

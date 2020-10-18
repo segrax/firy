@@ -1,15 +1,16 @@
 namespace firy {
 
 	namespace filesystem {
-		struct sNode;
-		struct sFile;
-		struct sDirectory;
+		class sNode;
+		class sFile;
+		class sDirectory;
 	}
-	typedef std::shared_ptr<filesystem::sNode> spNode;
-	typedef std::weak_ptr<filesystem::sNode> wpNode;
+	using spNode = std::shared_ptr<filesystem::sNode>;
+	using wpNode = std::weak_ptr<filesystem::sNode>;
+	using wpDirectory = std::weak_ptr<filesystem::sDirectory>;
 
-	typedef std::shared_ptr<filesystem::sFile> spFile;
-	typedef std::shared_ptr<filesystem::sDirectory> spDirectory;
+	using spFile = std::shared_ptr<filesystem::sFile>;
+	using spDirectory = std::shared_ptr<filesystem::sDirectory>;
 
 	namespace filesystem {
 		/**
@@ -29,17 +30,20 @@ namespace firy {
 			virtual spBuffer filesystemRead(spNode pFile) = 0;
 			virtual bool filesystemRemove(spNode pFile) = 0;
 
-			virtual bool filesystemCreate() { gDebug->error("not implemented"); return false; }
+			virtual bool filesystemCreate() = 0;
 			virtual bool filesystemLoad() = 0;
-			virtual bool filesystemSave() { gDebug->error("not implemented"); return false; }
+			virtual bool filesystemSave() = 0;
+
+			virtual size_t filesystemTotalBytesFree() = 0;
+			virtual size_t filesystemTotalBytesMax() = 0;
+
 		protected:
 
-			/**
-			 * Load the T/S chain for a file
-			 */
 			virtual bool filesystemChainLoad(spFile pFile) = 0;
 			virtual bool filesystemBitmapLoad() = 0;
 			virtual bool filesystemBitmapSave() = 0;
+
+			virtual bool filesystemSaveNative() = 0;
 
 			spDirectory mFsRoot;
 			std::string mFsPathSeperator;
@@ -47,6 +51,6 @@ namespace firy {
 		};
 	}
 
-	typedef std::shared_ptr<filesystem::cInterface> spFilesystem;
-	typedef std::weak_ptr<filesystem::cInterface>	wpFilesystem;
+	using spFilesystem = std::shared_ptr<filesystem::cInterface>;
+	using wpFilesystem = std::weak_ptr<filesystem::cInterface> ;
 }

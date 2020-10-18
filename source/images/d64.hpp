@@ -63,7 +63,6 @@ namespace firy {
 				uint8_t mFlags;
 
 				sDirIndex mDirIndex;
-				std::vector<tTrackSector> mChain;
 
 				sFile(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
@@ -82,27 +81,32 @@ namespace firy {
 		public:
 			cD64(spSource pSource);
 
+			virtual std::string imageTypeShort() const override { return "d64"; }
 			virtual std::string imageType() const override {
 				return "Commodore 64 Disk Image (D64)";
 			}
 
-			virtual std::vector<std::string> imageExtensions() const override {
+			static std::vector<std::string> imageExtensions() {
 				return { "d64" };
 			}
 
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
-			virtual bool filesystemSave() override;
 			virtual spBuffer filesystemRead(spNode pFile) override;
 			virtual bool filesystemRemove(spNode pFile) override;
 
-			d64::spFile filesystemFileCreate(const std::string& pName = "") {
-				auto res = std::make_shared<d64::sFile>(weak_from_this(), pName);
-				res->dirty(true);
-				return res;
+			spFile filesystemFileCreate(const std::string& pName = "") {
+				return filesystemNodeCreate<d64::sFile>(pName);
+			}
+
+			spDirectory filesystemDirectoryCreate(const std::string& pName = "") {
+				return 0;
 			}
 
 			d64::spFile filesystemFindFreeIndex(d64::spFile pFile);
+
+			virtual size_t filesystemTotalBytesFree() override;
+			virtual size_t filesystemTotalBytesMax() override;
 
 			virtual tSector sectorCount(const tTrack pTrack = 0) const override;
 			virtual size_t sectorSize(const tTrack pTrack = 0) const override;
@@ -110,19 +114,20 @@ namespace firy {
 			virtual bool sectorIsFree(const tTrackSector pTS) const override;
 			virtual bool sectorSet(const tTrackSector pTS, const bool pValue) override;
 
-			virtual std::vector<tTrackSector> sectorsUse(const tSector pTotal) override;
-			virtual bool sectorsFree(const std::vector<tTrackSector>& pSectors) override;
+			virtual std::vector<sChainEntry> sectorsUse(const tSector pTotal) override;
+			virtual bool sectorsFree(const std::vector<sChainEntry> & pSectors) override;
 
-			virtual std::vector<tTrackSector> sectorsGetFree(const tTrack pTrack = 0) const override;
+			virtual std::vector<sChainEntry> sectorsGetFree(const tTrack pTrack = 0) const override;
 
 		protected:
-			virtual bool filesystemChainLoad(spFile pFile) override;
+			virtual bool filesystemChainLoad(spFile pFile);
 			virtual d64::spFile filesystemEntryLoad(spBuffer pBuffer, const size_t pOffset);
 			virtual bool filesystemEntrySave(d64::spFile pFile);
 
 			virtual bool filesystemBitmapLoad() override;
 			virtual bool filesystemBitmapSave() override;
 
+			virtual bool filesystemSaveNative() override;
 		private:
 			std::vector<d64::sTrackBam> mBam;
 

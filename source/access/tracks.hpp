@@ -1,10 +1,5 @@
 namespace firy {
 
-	typedef size_t tTrack;
-	typedef size_t tSector;
-
-	typedef std::pair<tTrack, tSector> tTrackSector;
-
 	namespace access {
 
 		/**
@@ -51,17 +46,17 @@ namespace firy {
 			/**
 			 * Get 'pTotal' number of free sectors, marking them used
 			 */
-			virtual std::vector<tTrackSector> sectorsUse(const tSector pTotal) = 0;
+			virtual std::vector<sChainEntry> sectorsUse(const tSector pTotal) = 0;
 
 			/**
 			 * Free all sectors in 'pSectors'
 			 */
-			virtual bool sectorsFree(const std::vector<tTrackSector>& pSectors) = 0;
+			virtual bool sectorsFree(const std::vector<sChainEntry>& pSectors) = 0;
 
 			/**
 			 * Get the free sectors on a track
 			 */
-			virtual std::vector<tTrackSector> sectorsGetFree(const tTrack pTrack = 0) const = 0;
+			virtual std::vector<sChainEntry> sectorsGetFree(const tTrack pTrack = 0) const = 0;
 
 			/**
 			 * Read the provided T/S
@@ -82,6 +77,27 @@ namespace firy {
 			 * Number of bytes per sector
 			 */
 			virtual size_t sectorSize(const tTrack pTrack = 0) const = 0;
+
+			/**
+			 * Is this a valid track
+			 */
+			virtual bool trackValid(const tTrack pTrack) const {
+				if (pTrack <= 0 || pTrack > trackCount())
+					return false;
+				return true;
+			}
+
+			/**
+			 * Is this a valid TS
+			 */
+			virtual bool sectorValid(const tTrackSector pTS) const {
+				if (!trackValid(pTS.first))
+					return false;
+				if (pTS.second >= sectorCount(pTS.first))
+					return false;
+
+				return true;
+			}
 
 		protected:
 

@@ -57,9 +57,6 @@
     <ClInclude Include="..\..\source\sources\source.hpp">
       <Filter>Source Files\sources</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\sources\file.hpp">
-      <Filter>Source Files\sources</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\source\images\image.hpp">
       <Filter>Source Files\images</Filter>
     </ClInclude>
@@ -78,11 +75,20 @@
     <ClInclude Include="..\..\source\buffer.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\debug.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\source\helpers\dirty.hpp">
       <Filter>Source Files\helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\helpers\datetime.hpp">
+      <Filter>Source Files\helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\options.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\console.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\sources\sourcefile.hpp">
+      <Filter>Source Files\sources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -100,9 +106,6 @@
     </ClCompile>
     <ClCompile Include="..\..\source\images\fat.cpp">
       <Filter>Source Files\images</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\source\sources\file.cpp">
-      <Filter>Source Files\sources</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\sources\source.cpp">
       <Filter>Source Files\sources</Filter>
@@ -122,8 +125,14 @@
     <ClCompile Include="..\..\source\buffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\debug.cpp">
+    <ClCompile Include="..\..\source\options.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\sources\sourcefile.cpp">
+      <Filter>Source Files\sources</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

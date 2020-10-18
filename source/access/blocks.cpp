@@ -15,7 +15,7 @@ namespace firy {
 		tBlock cBlocks::blockUseSingle() {
 			auto blocks = blockUse(1);
 			if (blocks.size() == 1) {
-				return blocks[0];
+				return blocks[0].mBlock;
 			}
 			throw std::exception("not free block");
 		}

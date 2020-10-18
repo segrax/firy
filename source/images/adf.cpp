@@ -7,11 +7,6 @@ namespace firy {
 
 		namespace adf {
 
-			/**
-			 * Maximum number of bytes which can be stored in a block
-			 */
-			const size_t gBytesPerBlock = 512;
-
 			// Thanks to adflib for endian/time functions
 			// http://lclevy.free.fr/adflib
 
@@ -66,28 +61,6 @@ namespace firy {
 			}
 
 			/**
-			 * Default datetime to now
-			 */
-			sDateTime::sDateTime() {
-				struct tm local;
-				time_t cal;
-
-				time(&cal);
-				localtime_s(&local, &cal);
-
-				year = local.tm_year;         /* since 1900 */
-				month = local.tm_mon + 1;
-				days = local.tm_mday;
-				hour = local.tm_hour;
-				mins = local.tm_min;
-				secs = local.tm_sec;
-			}
-
-			void sDateTime::reset() {
-				year = month = days = hour = mins = secs = 0;
-			}
-
-			/**
 			 *
 			 */
 			void convertDaysToDate(int32_t days, int* yy, int* mm, int* dd) {
@@ -126,7 +99,7 @@ namespace firy {
 				*dd = days + 1;
 			}
 
-			void convertTimeToAmigaTime(struct sDateTime dt, int32_t* day, int32_t* min, int32_t* ticks)
+			void convertTimeToAmigaTime(struct helpers::sDateTime dt, int32_t* day, int32_t* min, int32_t* ticks)
 			{
 				int jm[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
@@ -135,7 +108,7 @@ namespace firy {
 
 				/*--- days ---*/
 
-				*day = dt.days - 1;                         /* current month days */
+				*day = dt.days;                         /* current month days */
 
 				/* previous months days downto january */
 				if (dt.month > 1) {                      /* if previous month exists */
@@ -147,6 +120,8 @@ namespace firy {
 						dt.month--;
 					}
 				}
+				if (dt.year > 1900)
+					dt.year -= 1900;
 
 				/* years days before current year downto 1978 */
 				if (dt.year > 78) {
@@ -205,7 +180,7 @@ namespace firy {
 			}
 
 			void sFile::setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent) {
-				convertTimeToAmigaTime(mDate, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
+				convertTimeToAmigaTime(mTimeWrite, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
 
 				pHeader->nameLen = (char)min(adf::gFilenameMaximumLength, nameGet().size());
 				memcpy(pHeader->fileName, nameGet().data(), pHeader->nameLen);
@@ -232,7 +207,7 @@ namespace firy {
 			}
 
 			void sDir::setBlock(std::shared_ptr<adf::sFileHeaderBlock> pHeader, spDir pParent) {
-				adf::convertTimeToAmigaTime(mDate, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
+				adf::convertTimeToAmigaTime(mTimeWrite, &(pHeader->days), &(pHeader->mins), &(pHeader->ticks));
 
 				pHeader->nameLen = (char)min(adf::gFilenameMaximumLength, nameGet().size());
 				memcpy(pHeader->fileName, nameGet().data(), pHeader->nameLen);
@@ -250,17 +225,33 @@ namespace firy {
 				pHeader->access = this->access;
 			}
 
+			/**
+			 * Standard Boot Code
+			 */
+			unsigned char gBootCode[81] = {
+				0x43, 0xFA, 0x00, 0x3E, 0x70, 0x25, 0x4E, 0xAE, 0xFD, 0xD8, 0x4A, 0x80,
+				0x67, 0x0C, 0x22, 0x40, 0x08, 0xE9, 0x00, 0x06, 0x00, 0x22, 0x4E, 0xAE,
+				0xFE, 0x62, 0x43, 0xFA, 0x00, 0x18, 0x4E, 0xAE, 0xFF, 0xA0, 0x4A, 0x80,
+				0x67, 0x0A, 0x20, 0x40, 0x20, 0x68, 0x00, 0x16, 0x70, 0x00, 0x4E, 0x75,
+				0x70, 0xFF, 0x4E, 0x75, 0x64, 0x6F, 0x73, 0x2E, 0x6C, 0x69, 0x62, 0x72,
+				0x61, 0x72, 0x79, 0x00, 0x65, 0x78, 0x70, 0x61, 0x6E, 0x73, 0x69, 0x6F,
+				0x6E, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79
+			};
+
 		}
 
 		/**
 		 * Constructor
 		 */
 		cADF::cADF(spSource pSource) : cImageAccess<access::cBlocks>(), access::cInterface(pSource) {
-			mBlockSize = adf::gBytesPerBlock;
+			mBlockSize = adf::gBytesPerBlockFFS;
 
 			mBlockFirst = 0;
 			mBlockLast = 0;
 			mBlockRoot = 0;
+			mFFS = false;
+			mInternational = false;
+			mDirCache = false;
 		}
 
 		/**
@@ -306,6 +297,8 @@ namespace firy {
 
 			root->mBlockNumber = mBlockRoot;
 			mFsRoot = root;
+			
+			mFFS = true;
 
 			// Write bootblock
 			{
@@ -315,13 +308,13 @@ namespace firy {
 				mBootBlock->dosType[2] = 'S';
 
 				mBootBlock->dosFlags = adf::FFS;
-
+				memcpy(mBootBlock->data, adf::gBootCode, sizeof(adf::gBootCode));
 				blockSaveChecksum(0, mBootBlock);
 			}
 
 			// Write the rootblock
 			{
-				mRootBlock = blockObjectCreate<adf::sRootBlock>();
+				auto mRootBlock = blockObjectCreate<adf::sRootBlock>();
 				mRootBlock->mType = 2;
 				mRootBlock->headerKey = 0;
 				mRootBlock->highSeq = 0;
@@ -332,72 +325,72 @@ namespace firy {
 				mRootBlock->secType = adf::ST_ROOT;
 
 				mRootBlock->bmFlag = -1;
-				mRootBlock->bmPages[0] = 881;	// First bitmap
+				mRootBlock->bmPages[0] = (int32_t) mBlockRoot + 1;	// First bitmap
 
 				blockSaveChecksum(mBlockRoot, mRootBlock);
 
 				mBitmapBlocks.push_back(blockObjectCreate<adf::sBitmapBlock>());
-			}
 
-			size_t index = 1;
-			tBlock lastBitmapBlock = (mBlockLast - 1) / (127 * 32);
-			while (mBitmapBlocks.size() < lastBitmapBlock) {
-				mRootBlock->bmPages[index++] = (int32_t)blockUseSingle();
-				if (index >= adf::BM_SIZE) {
-					break;
-				}
-				mBitmapBlocks.push_back({});
-			}
-
-			if(mBitmapBlocks.size() < lastBitmapBlock)
-				mRootBlock->bmExt = (int32_t)blockUseSingle();
-
-			auto ext = mRootBlock->bmExt;
-			auto extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
-			
-			while (mBitmapBlocks.size() < lastBitmapBlock) {
-
-				extBlock->bmPages[index++] = (int32_t)blockUseSingle();
-				mBitmapBlocks.push_back({});
-
-				// End of this block?
-				if (index >= adf::BM_SIZE) {
-					if(mBitmapBlocks.size() < lastBitmapBlock)
-						extBlock->nextBlock = (int32_t)blockUseSingle();
+				size_t index = 1;
+				tBlock lastBitmapBlock = (mBlockLast - 1) / (127 * 32);
+				while (mBitmapBlocks.size() < lastBitmapBlock) {
+					mRootBlock->bmPages[index++] = (int32_t)blockUseSingle();
+					if (index >= adf::BM_SIZE) {
+						break;
+					}
+					mBitmapBlocks.push_back({});
 				}
 
-				blockSaveNoCheck(ext, extBlock);
-				if (extBlock->nextBlock) {
-					ext = extBlock->nextBlock;
-					extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
-				}
-			}
+				if (mBitmapBlocks.size() < lastBitmapBlock)
+					mRootBlock->bmExt = (int32_t)blockUseSingle();
 
-			// Mark all blocks free
-			for (int x = 2; x < mBlockLast; ++x) {
-				blockSet(x, false);
-			}
-
-			// Mark blocks used by the bitmap as in use
-			{
-				// Mark the root in use
-				blockSet(mBlockRoot, true);
-
-				// Mark all pages used in the bitmap used
-				for (auto& blockno : mRootBlock->bmPages) {
-					if (blockno)
-						blockSet(blockno, true);
-				}
-
-				// Mark all pages in the bitmap extension used
 				auto ext = mRootBlock->bmExt;
-				while (ext) {
-					auto extBlock = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
-					for (auto& blockno : extBlock->bmPages) {
+				auto extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
+
+				while (mBitmapBlocks.size() < lastBitmapBlock) {
+
+					extBlock->bmPages[index++] = (int32_t)blockUseSingle();
+					mBitmapBlocks.push_back({});
+
+					// End of this block?
+					if (index >= adf::BM_SIZE) {
+						if (mBitmapBlocks.size() < lastBitmapBlock)
+							extBlock->nextBlock = (int32_t)blockUseSingle();
+					}
+
+					blockSaveNoCheck(ext, extBlock);
+					if (extBlock->nextBlock) {
+						ext = extBlock->nextBlock;
+						extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
+					}
+				}
+
+				// Mark all blocks free
+				for (int x = 2; x < mBlockLast; ++x) {
+					blockSet(x, false);
+				}
+
+				// Mark blocks used by the bitmap as in use
+				{
+					// Mark the root in use
+					blockSet(mBlockRoot, true);
+
+					// Mark all pages used in the bitmap used
+					for (auto& blockno : mRootBlock->bmPages) {
 						if (blockno)
 							blockSet(blockno, true);
 					}
-					ext = extBlock->nextBlock;
+
+					// Mark all pages in the bitmap extension used
+					auto ext = mRootBlock->bmExt;
+					while (ext) {
+						auto extBlock = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
+						for (auto& blockno : extBlock->bmPages) {
+							if (blockno)
+								blockSet(blockno, true);
+						}
+						ext = extBlock->nextBlock;
+					}
 				}
 			}
 
@@ -428,11 +421,13 @@ namespace firy {
 		/**
 		 *
 		 */
-		bool cADF::filesystemSave() {
-			mRootBlock->nameLen = (char)min(adf::gFilenameMaximumLength, mFsName.size());
-			memcpy(mRootBlock->diskName, mFsName.data(), mRootBlock->nameLen);
-
-			blockSaveChecksum(mBlockRoot, mRootBlock);
+		bool cADF::filesystemSaveNative() {
+			{
+				std::shared_ptr<adf::sRootBlock> block = blockLoad<adf::sRootBlock>(mBlockRoot);
+				block->nameLen = (char)min(adf::gFilenameMaximumLength, mFsName.size());
+				memcpy(block->diskName, mFsName.data(), block->nameLen);
+				blockSaveChecksum(mBlockRoot, block);
+			}
 
 			if (!filesystemSaveNode(mFsRoot, 0))
 				return false;
@@ -441,7 +436,7 @@ namespace firy {
 				return false;
 
 			dirty(false);
-			return true;;
+			return true;
 		}
 
 		/**
@@ -460,12 +455,12 @@ namespace firy {
 				// Fast File System?
 				if (isFFS()) {
 					spBuffer buffer = std::make_shared<tBuffer>();
-					buffer->pushBuffer(pBuffer->takeBytes(adf::gBytesPerBlock < pBuffer->size() ? adf::gBytesPerBlock : pBuffer->size()));
+					buffer->pushBuffer(pBuffer->takeBytes(adf::gBytesPerBlockFFS < pBuffer->size() ? adf::gBytesPerBlockFFS : pBuffer->size()));
 					if (!blockWrite(nextBlock, buffer)) {
 						return false;
 					}
 				} else {
-					auto bufferSrc = pBuffer->takeBytes(adf::gOFSBlockSize);
+					auto bufferSrc = pBuffer->takeBytes(adf::gBytesPerBlockOFS < pBuffer->size() ? adf::gBytesPerBlockOFS : pBuffer->size());
 					auto buffer = blockObjectCreate<adf::sOFSDataBlock>();
 
 					buffer->seqNum = (int32_t) ++pSequenceNumber;
@@ -503,14 +498,17 @@ namespace firy {
 			auto ext = pBlock->extension;
 			while (pBuffer->size()) {
 				auto blockExt = blockObjectCreate<adf::sFileExtBlock>();
+				blockExt->mType = 0x10;
 				blockExt->headerKey = ext;
+				blockExt->secType = -3;
 
 				if (!filesystemSaveFileToBlocks(blockExt, pBuffer, pSequenceNumber)) {
 					return false;
 				}
 
 				// Need another extension?
-				blockExt->extension = ((int32_t)pBuffer->size() == 0) ? 0 : (int32_t) blockUseSingle();
+				if(!blockExt->extension)
+					blockExt->extension = ((int32_t)pBuffer->size() == 0) ? 0 : (int32_t) blockUseSingle();
 
 				blockSaveChecksum(ext, blockExt);
 				ext = blockExt->extension;
@@ -545,6 +543,7 @@ namespace firy {
 			auto header = isNew ? blockObjectCreate<adf::sFileHeaderBlock>() : blockLoad<adf::sFileHeaderBlock>(pFile->mBlockNumber);
 			pFile->setBlock(header, pParent);
 			if (pFile->mContent->size()) {
+				pFile->sizeInBytesSet(pFile->mContent->size());
 				if (!filesystemSaveFileToBlocks(header, pFile->mContent)) {
 					// TODO: Free blocks
 					return false;
@@ -561,27 +560,27 @@ namespace firy {
 		bool cADF::filesystemSaveDir(adf::spDir pDir, adf::spDir pParent) {
 			bool isNew = false;
 
-			if (!pDir->isDirty())
-				return true;
-				
-			// If no parent, this is the root
-			if (pParent) {
-				// Has this dir already got a header block
-				if (!pDir->mBlockNumber) {
-					auto newBlock = entryCreate(pParent, pDir);
-					if (newBlock == -1)
-						return false;
-					if (newBlock == -2)
-						return true;
+			if (pDir->isDirty()) {
+				// If no parent, this is the root
+				if (pParent) {
+					// Has this dir already got a header block
+					if (!pDir->mBlockNumber) {
+						auto newBlock = entryCreate(pParent, pDir);
+						if (newBlock == -1)
+							return false;
+						if (newBlock == -2)
+							return true;
 
-					isNew = true;
-					pDir->mBlockNumber = newBlock;
+						isNew = true;
+						pDir->mBlockNumber = newBlock;
+					}
+
+					auto header = isNew ? blockObjectCreate<adf::sFileHeaderBlock>() : blockLoad<adf::sFileHeaderBlock>(pDir->mBlockNumber);
+					pDir->setBlock(header, pParent);
+					blockSaveChecksum(header->headerKey, header);
 				}
 
-				std::shared_ptr<adf::sFileHeaderBlock> block;
-				auto header = isNew ? blockObjectCreate<adf::sFileHeaderBlock>() : blockLoad<adf::sFileHeaderBlock>(pDir->mBlockNumber);
-				pDir->setBlock(header, pParent);
-				blockSaveChecksum(block->headerKey, block);
+				pDir->dirty(false);
 			}
 
 			// Sub Dirs
@@ -590,7 +589,6 @@ namespace firy {
 					return false;
 			}
 
-			pDir->dirty(false);
 			return true;
 		}
 
@@ -612,6 +610,20 @@ namespace firy {
 		}
 
 		/**
+		 *
+		 */
+		size_t cADF::filesystemTotalBytesFree() {
+			return blocksGetFree().size() * (isFFS() ? adf::gBytesPerBlockFFS : adf::gBytesPerBlockOFS);
+		}
+
+		/**
+		 *
+		 */
+		size_t cADF::filesystemTotalBytesMax() {
+			return mBlockLast * adf::gBytesPerBlockFFS;
+		}
+
+		/**
 		 * Get the sector for a hash from 'pDir'
 		 */
 		int32_t cADF::entryCreate(adf::spDir pDir, spNode pNode) {
@@ -620,7 +632,7 @@ namespace firy {
 				return -1;
 
 			auto entry = std::dynamic_pointer_cast<adf::sEntry>(pNode);
-			auto hash = entry->getNameHash(false);
+			auto hash = entry->getNameHash(isInternational());
 
 			auto newSect = (int32_t)blockUseSingle();
 
@@ -645,7 +657,7 @@ namespace firy {
 			while (sect) {
 				nextBlock = blockLoad<adf::sEntryBlock>(sect);
 				if (!nextBlock) {
-					gDebug->error("adf: next block not found");
+					error("next block not found");
 					return -1;
 				}
 
@@ -664,7 +676,7 @@ namespace firy {
 			// Update the block to reference the new sector
 			nextBlock->nextSameHash = newSect;
 			if (!blockSaveChecksum(nextBlock->headerKey, nextBlock)) {
-				gDebug->error("adf: block update failed");
+				error(" block update failed");
 				return -1;
 			}
 
@@ -683,10 +695,10 @@ namespace firy {
 				if (hash) {
 					auto entry = entryLoad(hash);
 					if (!entry) {
-						// TODO: Error
-						continue;
+						if(warning("Invalid directory entry found")->isAborted())
+							continue;
 					}
-					pDir->mNodes.push_back(entry);
+					pDir->nodeAdd(entry);
 
 					// Load any further files with a matching hash
 					tBlock nextSector = std::dynamic_pointer_cast<adf::sEntry>(entry)->mNextSameHash;
@@ -697,7 +709,7 @@ namespace firy {
 							break;
 						}
 
-						pDir->mNodes.push_back(entry);
+						pDir->nodeAdd(entry);
 						nextSector = std::dynamic_pointer_cast<adf::sEntry>(entry)->mNextSameHash;
 					}
 				}
@@ -711,7 +723,7 @@ namespace firy {
 		spNode cADF::entryLoad(const tBlock pBlock) {
 			auto blockEntry = blockLoad<adf::sEntryBlock>(pBlock);
 			if (!blockEntry) {
-				gDebug->error("adf: Could not load block");
+				error(" Could not load block");
 				return 0;
 			}
 
@@ -723,7 +735,7 @@ namespace firy {
 				return 0;
 			case adf::ST_DIR:
 			case adf::ST_LDIR:	{
-				node = filesystemDirCreate();
+				node = filesystemDirectoryCreate();
 				entry = std::dynamic_pointer_cast<adf::sEntry>(node);
 				break;
 			}
@@ -737,7 +749,7 @@ namespace firy {
 			}
 			
 			default:
-				gDebug->error("adf: Unknown entry type: ", std::to_string(blockEntry->secType));
+				error(" Unknown entry type: ", std::to_string(blockEntry->secType));
 				return 0;
 				break;
 			}
@@ -749,11 +761,14 @@ namespace firy {
 			entry->mParent = blockEntry->parent;
 
 			node->nameSet(std::string(blockEntry->name, min(blockEntry->nameLen, adf::gFilenameMaximumLength)));
+			node->sizeInBytesSet(blockEntry->byteSize);
 
-			adf::convertDaysToDate(blockEntry->days, &(entry->mDate.year), &(entry->mDate.month), &(entry->mDate.days));
-			entry->mDate.hour = blockEntry->mins / 60;
-			entry->mDate.mins = blockEntry->mins % 60;
-			entry->mDate.secs = blockEntry->ticks / 50;
+			helpers::sDateTime dt;
+			adf::convertDaysToDate(blockEntry->days, &(dt.year), &(dt.month), &(dt.days));
+			dt.hour = blockEntry->mins / 60;
+			dt.mins = blockEntry->mins % 60;
+			dt.secs = blockEntry->ticks / 50;
+			node->timeWriteSet(dt);
 
 			entry->mBlockNumber = pBlock;
 			entry->mNextSameHash = blockEntry->nextSameHash;
@@ -771,7 +786,6 @@ namespace firy {
 		 */
 		spBuffer cADF::filesystemReadOFS(adf::spFile pFile) {
 			auto blockFile = blockLoad<adf::sFileHeaderBlock>(pFile->mBlockNumber);
-			size_t totalbytes = blockFile->byteSize;
 
 			tBlock currentblock = blockFile->firstData;
 			int count = 1;
@@ -781,13 +795,9 @@ namespace firy {
 				auto block = blockLoad<adf::sOFSDataBlock>(currentblock);
 				buffer->pushBuffer(block->data, block->dataSize);
 
-				totalbytes -= block->dataSize;
-				if (!totalbytes)
-					break;
-
 				if (block->seqNum + 1 != ++count) {
-					gDebug->error("adf", "Old FS: Sequence is wrong");
-					return {};
+					if(warning("filesystemReadOFS: Sequence is wrong")->isAborted())
+						return {};
 				}
 				currentblock = block->nextData;
 			}
@@ -803,7 +813,6 @@ namespace firy {
 		spBuffer cADF::filesystemReadFFS(adf::spFile pFile) {
 
 			auto blockFile = blockLoad<adf::sFileHeaderBlock>(pFile->mBlockNumber);
-			size_t totalbytes = blockFile->byteSize;
 			spBuffer buffer = std::make_shared<tBuffer>();
 
 			for (int index = (adf::gDataBlocksMax - 1); index >= 0; --index) {
@@ -811,17 +820,14 @@ namespace firy {
 					break;
 
 				auto block = blockRead(blockFile->dataBlocks[index]);
-				auto size = min(totalbytes, blockSize());
-				block->resize(size);
 				buffer->pushBuffer(block);
-				totalbytes -= size;
 			}
 
 			tBlock nextSector = blockFile->extension;
 			while (nextSector) {
 				auto blockExt = blockLoad<adf::sFileExtBlock>(nextSector);
 				if (!blockExt) {
-					gDebug->error("adf", "sFileExtBlock not found");
+					error("sFileExtBlock not found");
 					break;
 				}
 
@@ -830,10 +836,7 @@ namespace firy {
 						break;
 
 					auto block = blockRead(blockExt->dataBlocks[index]);
-					auto size = min(totalbytes, blockSize());
-					block->resize(size);
 					buffer->pushBuffer(block);
-					totalbytes -= size;
 				}
 
 				nextSector = blockExt->extension;
@@ -851,7 +854,25 @@ namespace firy {
 			if (!File)
 				return {};
 
-			return isFFS() ? filesystemReadFFS(File) : filesystemReadOFS(File);
+			if (!filesystemChainLoad(File)) {
+				File->mChainBroken = true;
+				return {};
+			}
+			spBuffer buffer = std::make_shared<tBuffer>();
+
+			for (auto& entry : File->mChain) {
+				if (isFFS()) {
+					auto block = blockRead(entry.block());
+					buffer->pushBuffer(block);
+				}
+				else {
+					auto block = blockLoad<adf::sOFSDataBlock>(entry.block());
+					buffer->pushBuffer(block->data, block->dataSize);
+				}
+			}
+
+			buffer->resize(pFile->sizeInBytesGet());
+			return buffer;
 		}
 		
 		/**
@@ -859,45 +880,114 @@ namespace firy {
 		 */
 		bool cADF::filesystemRemove(spNode pFile) {
 			auto entry = std::dynamic_pointer_cast<adf::sEntry>(pFile);
-			auto block = blockLoad<adf::sEntryBlock>(entry->mBlockNumber);
+			auto blockFirst = blockLoad<adf::sEntryBlock>(entry->mBlockNumber);
+			if (!blockFirst)
+				return false;
+
+			// Get the parent block (the directory)
+			auto block = blockLoad<adf::sEntryBlock>(blockFirst->parent);
 			if (!block)
 				return false;
 
-			auto hash = entry->getNameHash(false);
+			auto hash = entry->getNameHash(isInternational());
 
 			// Find the hash for this filename
 			auto sect = block->hashTable[hash];
 			if (!sect)
 				return false;
 			
+			size_t lastBlockNo = blockFirst->parent;
 			std::shared_ptr<adf::sEntryBlock> lastBlock = block;
 			std::shared_ptr<adf::sEntryBlock> nextBlock;
 
 			while (sect) {
 				nextBlock = blockLoad<adf::sEntryBlock>(sect);
 				if (!nextBlock) {
-					gDebug->error("adf: next block not found");
+					error(" next block not found");
 					return false;
 				}
 
 				// Check if its the file we are trtying to save
 				if (nextBlock->nameLen == pFile->nameGet().size()) {
+					std::vector<sChainEntry> free;
+
 					auto name = std::string(nextBlock->name, min(nextBlock->nameLen, adf::gFilenameMaximumLength));
 
 					if (pFile->nameGet() == name) {
+						free.push_back(sect);
 
-						if (lastBlock == block) {
-							block->hashTable[hash] = 0;
-							blockSaveChecksum(block->headerKey, block);
+						// If the last block was the directory holding our fileblockheader
+						if (lastBlock->hashTable[hash] == entry->mBlockNumber) {
+							// And we know another file with same hash exists
+							if (nextBlock->nextSameHash) {
+								lastBlock->hashTable[hash] = nextBlock->nextSameHash;
+							}
+							else {
+								lastBlock->hashTable[hash] = 0;
+							}
+
+							// If the block isnt set, this might be the root
+							if(lastBlock->headerKey)
+								blockSaveChecksum(lastBlock->headerKey, lastBlock);
+							else {
+								blockSaveChecksum(mBlockRoot, lastBlock);
+							}
 
 						} else {
+							// Set the next file header in the previous block
 							lastBlock->nextSameHash = nextBlock->nextSameHash;
 							blockSaveChecksum(lastBlock->headerKey, lastBlock);
 						}
+
+						// Now loop through the file header blocks and free the blocks
+						for (int index = (adf::gDataBlocksMax - 1); index >= 0; --index) {
+							if (!nextBlock->hashTable[index])
+								break;
+							free.push_back(nextBlock->hashTable[index]);
+						}
+
+						// Directory?
+						if (nextBlock->mType == 2 && nextBlock->secType == adf::ST_DIR) {
+							// Check for and free directory cache
+							if (nextBlock->extension && isDirCache()) {
+								tBlock nextSector = nextBlock->extension;
+								while (nextSector) {
+									free.push_back(nextSector);
+									auto blockExt = blockLoad<adf::sDirCacheBlock>(nextSector);
+									if (!blockExt) {
+										error("sDirCacheBlock not found");
+										break;
+									}
+									nextSector = blockExt->nextDirC;
+								}
+							}
+
+						} else {
+							// Now loop the file extension blocks
+							tBlock nextSector = nextBlock->extension;
+							while (nextSector) {
+								free.push_back(nextSector);
+								auto blockExt = blockLoad<adf::sFileExtBlock>(nextSector);
+								if (!blockExt) {
+									error("sFileExtBlock not found");
+									break;
+								}
+
+								for (int index = adf::gDataBlocksMax - 1; index >= 0; --index) {
+									if (!blockExt->dataBlocks[index])
+										break;
+									free.push_back(blockExt->dataBlocks[index]);
+								}
+								nextSector = blockExt->extension;
+							}
+						}
+
+						blocksFree(free);
 						return true;
 					}
 				}
 
+				lastBlockNo = sect;
 				lastBlock = nextBlock;
 				sect = nextBlock->nextSameHash;
 			}
@@ -905,11 +995,19 @@ namespace firy {
 			return false;
 		}
 
+		spFile cADF::filesystemFileCreate(const std::string& pName) {
+			return filesystemNodeCreate<adf::sFile>(pName);
+		}
+
+		spDirectory cADF::filesystemDirectoryCreate(const std::string& pName) {
+			return filesystemNodeCreate<adf::sDir>(pName);
+		}
+
 		/**
 		 * Size of a block
 		 */
 		size_t cADF::blockSize(const tBlock pBlock) const {
-			return adf::gBytesPerBlock;
+			return adf::gBytesPerBlockFFS;
 		}
 
 		/** 
@@ -919,6 +1017,8 @@ namespace firy {
 			tBlock sectOfMap = pBlock - 2;
 			tBlock block = sectOfMap / (127 * 32);
 			tBlock indexInMap = (sectOfMap / 32) % 127;
+			if (block >= mBitmapBlocks.size())
+				return false;
 
 			return ((mBitmapBlocks[block]->map[indexInMap]
 				& adf::blockBamBitMask[sectOfMap % 32]) != 0);
@@ -951,8 +1051,8 @@ namespace firy {
 		/**
 		 * Get a number of blocks, marking them used in the process
 		 */
-		std::vector<tBlock> cADF::blockUse(const tBlock pTotal) {
-			std::vector<tBlock> results;
+		std::vector<sChainEntry> cADF::blockUse(const tBlock pTotal) {
+			std::vector<sChainEntry> results;
 
 			for (tBlock block = 2; block < blockCount(); ++block) {
 				
@@ -962,8 +1062,8 @@ namespace firy {
 					if (results.size() == pTotal) {
 
 						for (auto block : results) {
-							if (!blockSet(block, true)) {
-								gDebug->error("adf: blockUse-blockSet failed");
+							if (!blockSet(block.block(), true)) {
+								error(" blockUse-blockSet failed");
 								return {};
 							}
 						}
@@ -978,10 +1078,10 @@ namespace firy {
 		/**
 		 *
 		 */
-		bool cADF::blocksFree(const std::vector<tBlock>& pBlocks) {
+		bool cADF::blocksFree(const std::vector<sChainEntry>& pBlocks) {
 			for (auto& block: pBlocks) {
-				if (!blockSet(block, false)) {
-					gDebug->error("adf: blocksFree-blockSet failed");
+				if (!blockSet(block.block(), false)) {
+					error(" blocksFree-blockSet failed");
 					return false;
 				}
 			}
@@ -992,11 +1092,11 @@ namespace firy {
 		/**
 		 * Get all blocks free
 		 */
-		std::vector<tBlock> cADF::blocksGetFree() const {
-			std::vector<tBlock> freeBlocks;
+		std::vector<sChainEntry> cADF::blocksGetFree() const {
+			std::vector<sChainEntry> freeBlocks;
 			for (tBlock j = mBlockFirst + 2; j <= (mBlockLast - mBlockFirst); j++)
 				if (blockIsFree(j))
-					freeBlocks.push_back(j);
+					freeBlocks.push_back({ j });
 
 			return freeBlocks;
 		}
@@ -1022,35 +1122,66 @@ namespace firy {
 		 *
 		 */
 		bool cADF::filesystemChainLoad(spFile pFile) {
+			adf::spFile File = std::dynamic_pointer_cast<adf::sFile>(pFile);
 
-			return false;
+			pFile->mChain.clear();
+			auto blockFile = blockLoad<adf::sFileHeaderBlock>(File->mBlockNumber);
+			if (!blockFile) {
+				return false;
+			}
+			for (int index = (adf::gDataBlocksMax - 1); index >= 0; --index) {
+				if (!blockFile->dataBlocks[index])
+					break;
+
+				pFile->mChain.push_back( (tBlock) blockFile->dataBlocks[index] );
+			}
+
+			tBlock nextSector = blockFile->extension;
+			while (nextSector) {
+				auto blockExt = blockLoad<adf::sFileExtBlock>(nextSector);
+				if (!blockExt) {
+					error("sFileExtBlock not found");
+					return false;
+				}
+
+				for (int index = adf::gDataBlocksMax - 1; index >= 0; --index) {
+					if (!blockExt->dataBlocks[index])
+						break;
+
+					pFile->mChain.push_back((tBlock)blockExt->dataBlocks[index]);
+				}
+
+				nextSector = blockExt->extension;
+			}
+			return true;
 		}
 		
 		/**
 		 * Load the disk bitmap
 		 */
 		bool cADF::filesystemBitmapLoad() {
+			std::shared_ptr<adf::sRootBlock> block = blockLoad<adf::sRootBlock>(mBlockRoot);
 			mBitmapBlocks.clear();
 
-			for (auto& page : mRootBlock->bmPages) {
+			for (auto& page : block->bmPages) {
 				if (page) {
 					auto block = blockLoad<adf::sBitmapBlock>(page);
 					if (!block) {
-						gDebug->error("bitmap block load error");
+						error("bitmap invalid block number");
 						return false;
 					}
 					mBitmapBlocks.push_back(block);
 				}
 			}
 
-			auto blockBitmapExt = mRootBlock->bmExt;
+			auto blockBitmapExt = block->bmExt;
 			while (blockBitmapExt) {
 				auto blockExt = blockLoadNoCheck<adf::sBitmapExtBlock>(blockBitmapExt);
 				for(auto& page : blockExt->bmPages) {
 					if (page) {
 						auto block = blockLoad<adf::sBitmapBlock>(page);
 						if (!block) {
-							gDebug->error("bitmap block load error");
+							error("bitmap invalid block number");
 							return false;
 						}
 						mBitmapBlocks.push_back(block);
@@ -1067,12 +1198,13 @@ namespace firy {
 		 * Save the disk bitmap
 		 */
 		bool cADF::filesystemBitmapSave() {
+			std::shared_ptr<adf::sRootBlock> block = blockLoad<adf::sRootBlock>(mBlockRoot);
 
 			tBlock index = 0;
 
-			tBlock ext = mRootBlock->bmExt;
+			tBlock ext = block->bmExt;
 			std::shared_ptr< adf::sBitmapExtBlock> blkext = 0;
-			int32_t* pages = mRootBlock->bmPages;
+			int32_t* pages = block->bmPages;
 			int32_t maxpages = adf::BM_SIZE;
 
 			// 
@@ -1081,7 +1213,7 @@ namespace firy {
 					blockSaveChecksum(pages[index], bitmapBlock);
 				}
 
-				if (++index >= adf::BM_SIZE) {
+				if (++index >= maxpages) {
 					index = 0;
 
 					blkext = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
@@ -1100,10 +1232,14 @@ namespace firy {
 			if (!mBootBlock)
 				return false;
 
-			// Original AmigaDOS 1.2 FS
-			//if (!(mBootBlock->dosType[3] & eFlags::FFS))
-			//	mBlockSize = 488;
+			if (strncmp((const char*)mBootBlock->dosType, "DOS", 3)) {
+				error("DOS marker not found in boot block");
+				return false;
+			}
 
+			mFFS = mBootBlock->dosFlags& adf::eFlags::FFS;
+			mInternational = mBootBlock->dosFlags& adf::eFlags::INTL;
+			mDirCache =	mBootBlock->dosFlags& adf::eFlags::DIRCACHE;
 			return true;
 		}
 
@@ -1138,10 +1274,10 @@ namespace firy {
 		 */
 		bool cADF::blockRootLoad() {
 
-			mRootBlock = blockLoad<adf::sRootBlock>(mBlockRoot);
-			mFsName = std::string(mRootBlock->diskName, mRootBlock->nameLen);
-
-			return (mRootBlock != 0);
+			auto block = blockLoad<adf::sRootBlock>(mBlockRoot);
+			mFsName = std::string(block->diskName, min(adf::gFilenameMaximumLength, block->nameLen));
+			
+			return (block != 0);
 		}
 
 		/**
@@ -1205,8 +1341,14 @@ namespace firy {
 
 				if (blockptr->data[0] != 0) {
 					if (checksum != block->checkSum) {
-						gDebug->error("Boot Block checksum fail");
-						return 0;
+
+						// If its not even a dos disk, just fail
+						if (strncmp((const char*)blockptr->dosType, "DOS", 3)) {
+							return 0;
+						}
+
+						if(warning("Boot Block checksum fail")->isAborted())
+							return 0;
 					}
 				}
 				return block;
@@ -1218,8 +1360,8 @@ namespace firy {
 			blockSwapEndian(block);
 
 			if (checksum != block->checkSum) {
-				gDebug->error("Block checksum fail");
-				return 0;
+				if (warning("Block checksum fail")->isAborted())
+					return 0;
 			}
 			return block;
 		}

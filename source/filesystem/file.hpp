@@ -1,7 +1,7 @@
 namespace firy {
 	namespace filesystem {
 
-		struct sFile : public sNode {
+		class sFile : public sNode {
 		public:
 
 			sFile(wpFilesystem pFilesystem, const std::string& pName = "");
@@ -9,10 +9,11 @@ namespace firy {
 			virtual spBuffer read();
 
 			bool mChainBroken;
-			tSize mSizeInBytes;
+			std::vector<sChainEntry> mChain;
+
 			spBuffer mContent;
 		};
 
-		typedef std::shared_ptr<filesystem::sFile> spFile;
+		using spFile = std::shared_ptr<filesystem::sFile>;
 	}
 }

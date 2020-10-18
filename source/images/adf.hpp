@@ -10,7 +10,9 @@ namespace firy {
 			const size_t gDataBlocksMax = 72;
 			const size_t gFilenameMaximumLength = 30;
 			const size_t gCommentMaximumLength = 79;
-			const size_t gOFSBlockSize = 488;
+
+			const size_t gBytesPerBlockFFS = 512;
+			const size_t gBytesPerBlockOFS = 488;
 
 			enum eFlags {
 				FFS = 1,				// AmigaDos 2.04+
@@ -144,7 +146,7 @@ namespace firy {
 				/*00c*/	int32_t	dataSize;	/* <= 0x1e8 */
 				/*010*/	int32_t	nextData;	/* next data block */
 				/*014*/	ULONG	checkSum;
-				/*018*/	UCHAR	data[gOFSBlockSize];
+				/*018*/	UCHAR	data[gBytesPerBlockOFS];
 				/*200*/
 			};
 
@@ -159,11 +161,14 @@ namespace firy {
 				/*1fc*/	int32_t	nextBlock;
 			};
 
-			struct sDateTime {
-				int year, month, days, hour, mins, secs;
-
-				sDateTime();
-				void reset();
+			struct sDirCacheBlock {
+				/*000*/	int32_t	type;		/* == 33 */
+				/*004*/	int32_t	headerKey;
+				/*008*/	int32_t	parent;
+				/*00c*/	int32_t	recordsNb;
+				/*010*/	int32_t	nextDirC;
+				/*014*/	ULONG	checkSum;
+				/*018*/	uint8_t records[488];
 			};
 
 			struct sEntry {
@@ -173,7 +178,6 @@ namespace firy {
 				tBlock mNextSameHash;
 				std::string mComment;
 				int32_t access;
-				sDateTime mDate;
 
 				sEntry() {
 					mType = 0;
@@ -263,45 +267,38 @@ namespace firy {
 		public:
 			cADF(spSource pSource);
 
+			virtual std::string imageTypeShort() const override { return "adf"; }
 			virtual std::string imageType() const override {
 				return "Amiga Disk Format (adf)";
 			}
 
-			virtual std::vector<std::string> imageExtensions() const override {
+			static std::vector<std::string> imageExtensions() {
 				return { "adf", "hdf" };
 			}
 
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
-			virtual bool filesystemSave() override;
 
 			virtual spBuffer filesystemRead(spNode pFile) override;
 			virtual bool filesystemRemove(spNode pFile) override;
 
-			adf::spFile filesystemFileCreate(const std::string& pName = "") {
-				auto res = std::make_shared<adf::sFile>(weak_from_this(), pName);
-				res->dirty(true);
-				return res;
-			}
-
-			adf::spDir filesystemDirCreate(const std::string& pName = "") {
-				auto res =  std::make_shared<adf::sDir>(weak_from_this(), pName);
-				res->dirty(true);
-				return res;
-			}
+			virtual spFile filesystemFileCreate(const std::string& pName = "");
+			virtual spDirectory filesystemDirectoryCreate(const std::string& pName = "");
 
 			virtual size_t blockSize(const tBlock pBlock = 0) const override;
 			virtual bool blockIsFree(const tBlock pBlock) const override;
 			virtual bool blockSet(const tBlock pBlock, const bool pValue) override;
 
-			virtual std::vector<tBlock> blockUse(const tBlock pTotal) override;
-			virtual bool blocksFree(const std::vector<tBlock>& pBlocks) override;
+			virtual std::vector<sChainEntry> blockUse(const tBlock pTotal) override;
+			virtual bool blocksFree(const std::vector<sChainEntry>& pBlocks) override;
 
-			virtual std::vector<tBlock> blocksGetFree() const override;
+			virtual std::vector<sChainEntry> blocksGetFree() const override;
 
 			adf::eType diskType() const;
 
-			bool isFFS() const { if (mBootBlock) return (mBootBlock->dosFlags & adf::eFlags::FFS) ; return false; }
+			inline bool isFFS() const { return mFFS; }
+			inline bool isInternational() const { return mInternational; }
+			inline bool isDirCache() const { return mDirCache; }
 
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
@@ -311,11 +308,15 @@ namespace firy {
 			virtual bool filesystemBitmapLoad() override;
 			virtual bool filesystemBitmapSave() override;
 
+			virtual bool filesystemSaveNative() override;
 			virtual bool filesystemSaveNode(spNode pNode, adf::spDir pParent);
 			virtual bool filesystemSaveFile(adf::spFile pFile, adf::spDir pParent);
 			virtual bool filesystemSaveDir(adf::spDir pNode, adf::spDir pParent);
 
 			template <class tBlockType> bool filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer, size_t pSequenceNumber = 0);
+			
+			virtual size_t filesystemTotalBytesFree() override;
+			virtual size_t filesystemTotalBytesMax() override;
 
 		private:
 			virtual spBuffer filesystemReadOFS(adf::spFile pFile);
@@ -338,7 +339,10 @@ namespace firy {
 
 		private:
 			std::shared_ptr<adf::sBootBlock> mBootBlock;
-			std::shared_ptr<adf::sRootBlock> mRootBlock;
+
+			bool mFFS;
+			bool mInternational;
+			bool mDirCache;
 
 			tBlock mBlockFirst;	// Block number of first
 			tBlock mBlockLast;	// Block number of last

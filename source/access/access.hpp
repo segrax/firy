@@ -1,11 +1,32 @@
 namespace firy {
 
+	typedef size_t tTrack;
+	typedef size_t tSector;
+	typedef size_t tBlock;
+
+	typedef std::pair<tTrack, tSector> tTrackSector;
+
+	struct sChainEntry {
+		tTrackSector mTS;
+		tBlock mBlock;
+
+		sChainEntry() { mTS.first = 0; mTS.second = 0; mBlock = 0; }
+		sChainEntry(const tTrackSector& pTS) { mTS = pTS; }
+		sChainEntry(const tBlock& pBlock) { mBlock = pBlock; }
+		sChainEntry(const sChainEntry& pChain) { mTS = pChain.mTS; mBlock = pChain.mBlock; }
+
+		void operator=(const sChainEntry& pChain) { mTS = pChain.mTS; mBlock = pChain.mBlock; }
+		tTrack track() const { return mTS.first; }
+		tSector sector() const { return mTS.second; }
+		tBlock block() const { return mBlock; }
+	};
+
 	namespace access {
 
 		/**
 		 * Provide function helpers to an underlying source
 		 */
-		class cInterface : public virtual firy::helpers::cDirty {
+		class cInterface {
 
 		public:
 			/**
@@ -25,10 +46,15 @@ namespace firy {
 			bool sourceSave(const std::string pID = "") {
 				if (!mSource->save(pID))
 					return false;
-				dirty(false);
 				return true;
 			}
 
+			/**
+			 * Get a source id
+			 */
+			std::string sourceID() const {
+				return mSource->sourceID();
+			}
 		protected:
 
 			/**
@@ -47,16 +73,23 @@ namespace firy {
 			}
 
 			/**
+			 * Is the source dirty
+			 */
+			bool sourceIsDirty() const {
+				return mSource->hasDirtyBuffers();
+			}
+
+			/**
 			 * Load a specific object from an offset in the source
 			 */
-			template <class tBlockType> std::shared_ptr<tBlockType> objectGet(const size_t pOffset = 0) {
+			template <class tBlockType> std::shared_ptr<tBlockType> sourceObjectGet(const size_t pOffset = 0) {
 				return mSource->objectGet<tBlockType>(pOffset);
 			}
 
 			/**
 			 * Save a specific object to an offset in the source
 			 */
-			template <class tBlockType> bool objectPut(const size_t pOffset, std::shared_ptr<tBlockType> pObject) {
+			template <class tBlockType> bool sourceObjectPut(const size_t pOffset, std::shared_ptr<tBlockType> pObject) {
 				return mSource->objectPut<tBlockType>(pOffset, pObject);
 			}
 
@@ -81,7 +114,6 @@ namespace firy {
 
 				if (!mSource->chunkCopyFromBuffer(pOffset, pBuffer))
 					return false;
-				dirty(true);
 				return true;
 			}
 
@@ -92,20 +124,9 @@ namespace firy {
 			 *  But dont want to adjust mSourceChunkSize to be a multiple of it
 			 */
 			bool sourceChunkPrepare(const size_t pSize) {
-
 				if (!mSource->chunkPrepare(pSize))
 					return false;
-				
-				dirty(true);
 				return true;
-			}
-
-			/**
-			 * Get a pointer to the chunk buffer
-			 * NOTE: This function is not safe, it will not cross the source chunk boundary
-			 */
-			uint8_t* sourceChunkPtr(const size_t pOffset = 0) {
-				return mSource->sourceChunkPtr(pOffset);
 			}
 
 		protected:

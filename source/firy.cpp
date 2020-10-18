@@ -9,7 +9,8 @@ namespace firy {
 	std::shared_ptr<cResources> gResources;
 
 	std::shared_ptr<cFiry> gFiry = std::make_shared<cFiry>();
-	std::shared_ptr<cDebug> gDebug = std::make_shared<cDebug>(0);
+	std::shared_ptr<cConsole> gConsole = std::make_shared<cConsole>(0);
+	std::shared_ptr<cOptions> gOptionsDefault = std::make_shared<cOptions>();
 
 	/**
 	 *
@@ -43,48 +44,67 @@ namespace firy {
 	/**
 	 * Open an image from a local file
 	 */
-	template <class tImageType> std::shared_ptr<tImageType> cFiry::openImageFile(const std::string& pFilename, const bool pIgnoreValid) {
+	template <class tImageType> std::shared_ptr<tImageType> cFiry::openImageFile(const std::string& pFilename, spOptions pOptions, const bool pIgnoreValid) {
 
 		// Detect filetype
 		auto image = std::make_shared<tImageType>(firy::gFiry->openLocalFile(pFilename));
+		if (image)
+			image->optionsSet(pOptions);
 
 		if (!image || image->filesystemLoad() == false && !pIgnoreValid) {
 			return 0;
 		}
 
-		return image;
+ 		return image;
 	}
 
+	/**
+	  * Get a list of known file extensions
+	  */
+	std::vector<std::string> cFiry::getKnownExtensions() {
+		std::vector<std::string> extensions;
+
+		for (auto& ext : images::cD64::imageExtensions()) {
+			extensions.push_back(ext);
+		}
+		for (auto& ext : images::cADF::imageExtensions()) {
+			extensions.push_back(ext);
+		}
+		for (auto& ext : images::cFAT::imageExtensions()) {
+			extensions.push_back(ext);
+		}
+		return extensions;
+	}
 
 	/**
 	 *
 	 */
 	spImage cFiry::openImage(const std::string& pFilename) {
-		gDebug->outputDisable(true);
-
 		spImage file = 0;
+
+		spOptions options = gOptionsDefault->clone();
+		options->errorShowSet(false);
 
 		// D64
 		try {
-			file = openImageFile<images::cD64>(pFilename);
+			file = openImageFile<images::cD64>(pFilename, options);
 		} catch (std::exception exception) {
 		}
 
 		// ADF
 		try {
 			if (!file)
-				file = openImageFile<images::cADF>(pFilename);
+				file = openImageFile<images::cADF>(pFilename, options);
 		} catch (std::exception exception) {
 		}
 
 		// FAT
 		try {
 			if (!file)
-				file = openImageFile<images::cFAT>(pFilename);
+				file = openImageFile<images::cFAT>(pFilename, options);
 		} catch (std::exception exception) {
 		}
 
-		gDebug->outputDisable(false);
 		return file;
 	}
 }

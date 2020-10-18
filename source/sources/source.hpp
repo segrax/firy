@@ -3,7 +3,7 @@ namespace firy {
 	namespace sources {
 		const size_t gMegabyte = 1048576;
 
-		class cInterface : public virtual firy::helpers::cDirty {
+		class cInterface {
 		public:
 
 			cInterface(const size_t pChunkSize = gMegabyte);
@@ -23,6 +23,7 @@ namespace firy {
 			virtual bool chunkCopyFromPtr(uint8_t* pSource, const size_t pSize, const size_t pOffset);
 
 			virtual size_t size() const;
+			virtual bool hasDirtyBuffers() const;
 
 			/**
 			 * Load an object from an offset
@@ -39,14 +40,15 @@ namespace firy {
 				return chunkCopyFromPtr((uint8_t*)pObject.get(), sizeof(tBlockType), pOffset);
 			}
 
-			virtual uint8_t* sourceChunkPtr(const size_t pOffset = 0);
+			virtual std::string sourceID() const { return mSourceID; }
 
 		protected:
 
 			std::map<size_t, spBuffer> mBuffers;		// Loaded chunks of the image, chunked by mChunkSize
 			size_t		mSourceChunkSize;				// Size of each chunk in mBuffers
-			size_t		mSourceSize;						// Total size of image
-			bool		mCreating;
+			size_t		mSourceSize;					// Total size of image
+			bool		mCreating;						// Is the source being created
+			std::string mSourceID;
 		};
 
 		
