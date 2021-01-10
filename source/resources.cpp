@@ -6,10 +6,6 @@
 #include <sys/stat.h>
 #include <filesystem>
 
-namespace std {
-	namespace filesystem = std::experimental::filesystem;
-}
-
 namespace firy {
 	std::string cResources::getcwd() {
 		return std::filesystem::current_path().string();
