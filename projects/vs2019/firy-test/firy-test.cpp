@@ -131,7 +131,7 @@ template <class tType> auto createTestImage_InjectRaws() {
 }
 
 int main()
-{
+{/*
 	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("D:\\Projects\\directory_opus_firy_plugin\\library\\firy\\test\\images\\amiga\\testdisk.adf");
 	testImage(D64);
 	auto newImageD = createTestImage_InjectRaws<firy::images::cD64>();
@@ -139,10 +139,10 @@ int main()
 
 	auto newImageA = createTestImage_InjectRaws<firy::images::cADF>();
 	testImage(newImageA);
-
+	*/
 	testImages();
 	return 0;
-
+	/*
 	auto path = D64->filesystemPath();
 
 	//auto a = std::make_shared<firy::images::d64::sFile>(D64->weak_from_this(), "TEST");
@@ -253,7 +253,7 @@ int main()
 		name = name.substr(0, name.size() - 4); // remove extension
 
 		DumpImageBlocksFree<firy::images::cFAT>(file, "d:\\blocks", name);
-	}*/
+	}
 
 
 	{
@@ -268,7 +268,7 @@ int main()
 				auto file = FAT->filesystemFile("/scandisk.log");
 				auto data = file->read();
 	}
-
+	*/
 
 	
 }
