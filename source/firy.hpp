@@ -111,7 +111,7 @@ namespace firy {
 		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, spOptions pOptions = gOptionsDefault, const bool pIgnoreValid = false);
 		
 		template <class tImageType> std::shared_ptr<tImageType> createImageFile(const std::string& pFilename) {
-			auto image = std::make_shared<tImageType>(firy::gFiry->createLocalFile(pFilename));
+			auto image = std::make_shared<tImageType>(createLocalFile(pFilename));
 
 			if (!image || image->filesystemCreate() == false) {
 				return 0;
