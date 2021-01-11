@@ -140,7 +140,9 @@ int main()
 	auto newImageA = createTestImage_InjectRaws<firy::images::cADF>();
 	testImage(newImageA);
 	*/
-	testImages();
+	if (!testImages())
+		return 1;
+
 	return 0;
 	/*
 	auto path = D64->filesystemPath();
