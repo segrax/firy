@@ -132,7 +132,7 @@ template <class tType> auto createTestImage_InjectRaws() {
 
 int main()
 {
-	DumpImageBlocksFree("mine/Robs_Workbench2.0.adf", "d:\\blocks", "EA");
+	//DumpImageBlocksFree("mine/Robs_Workbench2.0.adf", "d:\\blocks", "EA");
 	/*
 	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("D:\\Projects\\directory_opus_firy_plugin\\library\\firy\\test\\images\\amiga\\testdisk.adf");
 	testImage(D64);
