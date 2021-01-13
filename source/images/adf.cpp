@@ -1,3 +1,25 @@
+/*
+ *  FIRY
+ *  ---------------
+ *
+ *  Copyright (C) 2019-2021
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ */
+
 #include "firy.hpp"
 #include "adf.hpp"
 #include <time.h>
@@ -909,7 +931,7 @@ namespace firy {
 
 				// Check if its the file we are trtying to save
 				if (nextBlock->nameLen == pFile->nameGet().size()) {
-					std::vector<sChainEntry> free;
+					std::vector<sAccessUnit> free;
 
 					auto name = std::string(nextBlock->name, min(nextBlock->nameLen, adf::gFilenameMaximumLength));
 
@@ -1051,8 +1073,8 @@ namespace firy {
 		/**
 		 * Get a number of blocks, marking them used in the process
 		 */
-		std::vector<sChainEntry> cADF::blockUse(const tBlock pTotal) {
-			std::vector<sChainEntry> results;
+		std::vector<sAccessUnit> cADF::blockUse(const tBlock pTotal) {
+			std::vector<sAccessUnit> results;
 
 			for (tBlock block = 2; block < blockCount(); ++block) {
 				
@@ -1078,7 +1100,7 @@ namespace firy {
 		/**
 		 *
 		 */
-		bool cADF::blocksFree(const std::vector<sChainEntry>& pBlocks) {
+		bool cADF::blocksFree(const std::vector<sAccessUnit>& pBlocks) {
 			for (auto& block: pBlocks) {
 				if (!blockSet(block.block(), false)) {
 					error(" blocksFree-blockSet failed");
@@ -1092,8 +1114,8 @@ namespace firy {
 		/**
 		 * Get all blocks free
 		 */
-		std::vector<sChainEntry> cADF::blocksGetFree() const {
-			std::vector<sChainEntry> freeBlocks;
+		std::vector<sAccessUnit> cADF::blocksGetFree() const {
+			std::vector<sAccessUnit> freeBlocks;
 			for (tBlock j = mBlockFirst + 2; j <= (mBlockLast - mBlockFirst); j++)
 				if (blockIsFree(j))
 					freeBlocks.push_back({ j });

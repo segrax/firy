@@ -90,6 +90,9 @@
     <ClInclude Include="..\..\source\sources\sourcefile.hpp">
       <Filter>Source Files\sources</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\access\accessunit.hpp">
+      <Filter>Source Files\access</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\firy.cpp">

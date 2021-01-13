@@ -9,10 +9,10 @@
 #include <sstream>
 #include <iomanip>
 
-bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::string& pBaseFileName) {
+bool DumpBlocksFree(firy::spImage pDisk, const std::string& pBaseFileName) {
 
-	for (auto& block : pDisk->blocksGetFree()) {
-		auto data = pDisk->blockRead(block.block());
+	for (auto& block : pDisk->unitGetFree()) {
+		auto data = pDisk->unitRead(block);
 		if (!data) {
 
 			return false;
@@ -29,9 +29,9 @@ bool DumpBlocksFree(std::shared_ptr<firy::access::cBlocks> pDisk, const std::str
 	return true;
 }
 
-template <class tImage> void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
+void DumpImageBlocksFree(const std::string& pImage, const std::string& pTarget, const std::string& pBaseTarget) {
 
-	std::shared_ptr<tImage> img = std::make_shared<tImage>(firy::gFiry->openLocalFile(pImage));
+	auto img = firy::gFiry->openImage(pImage);
 	img->filesystemLoad();
 	DumpBlocksFree(img, pTarget + "//" + pBaseTarget);
 }
@@ -131,7 +131,9 @@ template <class tType> auto createTestImage_InjectRaws() {
 }
 
 int main()
-{/*
+{
+	DumpImageBlocksFree("mine/Robs_Workbench2.0.adf", "d:\\blocks", "EA");
+	/*
 	auto D64 = firy::gFiry->openImageFile<firy::images::cADF>("D:\\Projects\\directory_opus_firy_plugin\\library\\firy\\test\\images\\amiga\\testdisk.adf");
 	testImage(D64);
 	auto newImageD = createTestImage_InjectRaws<firy::images::cD64>();
@@ -191,7 +193,7 @@ int main()
 
 		//firy::gResources->FileSave("d:\\test", track);
 
-		//DumpImageBlocksFree<firy::images::cADF>("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
+		//DumpImageBlocksFree("Robs_Workbench2.0.adf", "d:\\blocks", "EA");
 	}
 
 
@@ -239,14 +241,14 @@ int main()
 				std::cout << entry->nameGet() << "\n";
 			}
 		}
-		//DumpImageBlocksFree<firy::images::cFAT>("Prince.of.Persia.2.1of4.img", "d:\\blocks", "prince2");
+		//DumpImageBlocksFree("Prince.of.Persia.2.1of4.img", "d:\\blocks", "prince2");
 //		auto file = FAT->filesystemFile("/SIRxPRINCE");
 	//	auto data = file->read();
 	}
 
-	//DumpImageBlocksFree<firy::images::cFAT>("EA_Engine_Assy.img", "d:\\blocks", "EA");
-	//DumpImageBlocksFree<firy::images::cFAT>("Prince.Of.Persia.img", "d:\\blocks", "PRINCE");
-//DumpImageBlocksFree<firy::images::cADF>("d:\\blocks\\Robs_Workbench_2.adf", "d:\\blocks", "PRINCE");
+	//DumpImageBlocksFree("EA_Engine_Assy.img", "d:\\blocks", "EA");
+	//DumpImageBlocksFree("Prince.Of.Persia.img", "d:\\blocks", "PRINCE");
+//DumpImageBlocksFree("d:\\blocks\\Robs_Workbench_2.adf", "d:\\blocks", "PRINCE");
 
 	/*auto files = firy::gResources->directoryList(firy::gResources->getcwd(), "img");
 
@@ -254,7 +256,7 @@ int main()
 		auto name = file.substr(file.find_last_of("\\") + 1);
 		name = name.substr(0, name.size() - 4); // remove extension
 
-		DumpImageBlocksFree<firy::images::cFAT>(file, "d:\\blocks", name);
+		DumpImageBlocksFree(file, "d:\\blocks", name);
 	}
 
 

@@ -1,3 +1,25 @@
+/*
+ *  FIRY
+ *  ---------------
+ *
+ *  Copyright (C) 2019-2021
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ */
+
 #include "firy.hpp"
 #include "fat.hpp"
 
@@ -454,22 +476,22 @@ namespace firy {
 		/**
 		 *
 		 */
-		std::vector<sChainEntry> cFAT::blockUse(const tBlock pTotal) {
+		std::vector<sAccessUnit> cFAT::blockUse(const tBlock pTotal) {
 			return {};
 		}
 
 		/**
 		 *
 		 */
-		bool cFAT::blocksFree(const std::vector<sChainEntry>& pBlocks) {
+		bool cFAT::blocksFree(const std::vector<sAccessUnit>& pBlocks) {
 			return false;
 		}
 
 		/**
 		 * Return free clusters
 		 */
-		std::vector<sChainEntry> cFAT::blocksGetFree() const {
-			std::vector<sChainEntry> free;
+		std::vector<sAccessUnit> cFAT::blocksGetFree() const {
+			std::vector<sAccessUnit> free;
 			tBlock clusternumber = 0;
 
 			for (auto& cluster : mClusterMap) {

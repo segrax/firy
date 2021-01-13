@@ -1,3 +1,25 @@
+/*
+ *  FIRY
+ *  ---------------
+ *
+ *  Copyright (C) 2019-2021
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ */
+
 #include "firy.hpp"
 #include "d64.hpp"
 #include <math.h>
@@ -219,7 +241,7 @@ namespace firy {
 					// Write out each sector in the chain
 					for (size_t index = 0; index < file->mChain.size(); ++index ) {
 						auto& ts = file->mChain[index];
-						sChainEntry tsnext;
+						sAccessUnit tsnext;
 							
 						// Final sector?
 						if(index < (file->mChain.size() - 1))
@@ -324,8 +346,8 @@ namespace firy {
 		/**
 		 * Set sectors as free/used
 		 */
-		std::vector<sChainEntry> cD64::sectorsUse(const tSector pTotal) {
-			std::vector<sChainEntry> results;
+		std::vector<sAccessUnit> cD64::sectorsUse(const tSector pTotal) {
+			std::vector<sAccessUnit> results;
 			tTrackSector TS = { 1, 0 };
 
 			for (; TS.first < trackCount(); ++TS.first) {
@@ -352,7 +374,7 @@ namespace firy {
 		/**
 		 * Free sectors
 		 */
-		bool cD64::sectorsFree(const std::vector<sChainEntry>& pSectors) {
+		bool cD64::sectorsFree(const std::vector<sAccessUnit>& pSectors) {
 
 			for (auto sector : pSectors) {
 				if (!sectorSet(sector.mTS, false))
@@ -364,8 +386,8 @@ namespace firy {
 		/**
 		 * Get free sectors on the disk. Track0 will return entire disk
 		 */
-		std::vector<sChainEntry> cD64::sectorsGetFree(const tTrack pTrack) const {
-			std::vector<sChainEntry> results;
+		std::vector<sAccessUnit> cD64::sectorsGetFree(const tTrack pTrack) const {
+			std::vector<sAccessUnit> results;
 			tTrackSector TS = { pTrack, 0 };
 			if (pTrack == 0) {
 				for (++TS.first; TS.first < trackCount(); ++TS.first) {

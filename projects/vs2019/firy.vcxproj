@@ -125,6 +125,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\source\access\accessunit.hpp" />
     <ClInclude Include="..\..\source\access\blocks.hpp" />
     <ClInclude Include="..\..\source\access\access.hpp" />
     <ClInclude Include="..\..\source\access\tracks.hpp" />
