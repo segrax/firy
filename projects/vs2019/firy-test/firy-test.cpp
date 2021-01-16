@@ -108,8 +108,8 @@ bool testImages() {
 template <class tType> auto createTestImage_InjectRaws() {
 	static auto raws = firy::gResources->directoryList(firy::gResources->getcwd() + "/_raw", "");
 
-	auto d64 = firy::gFiry->createImageFile<tType>("");
-	d64->filesystemNameSet("FIRY TEST DISK");
+	auto image = firy::gFiry->createImageFile<tType>("");
+	image->filesystemNameSet("FIRY TEST DISK");
 
 	// Loop each file found in the raw folder
 	for (auto raw : raws) {
@@ -117,17 +117,17 @@ template <class tType> auto createTestImage_InjectRaws() {
 		auto filenameIndex = raw.find_last_of("\\");
 		std::string filename = raw.substr(filenameIndex + 1);
 
-		auto file = d64->filesystemFileCreate(filename);
+		auto file = image->filesystemFileCreate(filename);
 		file->mContent = firy::gResources->FileRead(raw);
-		if (!d64->filesystemPath()->add(file)) {
+		if (!image->filesystemPath()->add(file)) {
 			std::cout << "Failed to add file: " << filename << "\n";
 		}
 	}
 
-	if (!d64->filesystemLoad()) {
+	if (!image->filesystemLoad()) {
 		std::cout << "Failed\n";
 	}
-	return d64;
+	return image;
 }
 
 int main()

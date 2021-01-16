@@ -32,7 +32,7 @@ namespace firy {
 		spBuffer buffer = std::make_shared<tBuffer>();
 
 		buffer->resize(pBytes);
-		if (pBytes > size()) {
+		if (!pBytes || pBytes > size()) {
 			return 0;
 		}
 		dirty(true);

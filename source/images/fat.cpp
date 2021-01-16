@@ -28,7 +28,7 @@ namespace firy {
 		namespace fat {
 
 			sFile::sFile(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sFile(pFilesystem, pName) {
-
+				mSizeInSectors = 0;
 			}
 
 			sDir::sDir(wpFilesystem pFilesystem, const std::string& pName) : sEntry(), filesystem::sDirectory(pFilesystem, pName) {
@@ -200,10 +200,10 @@ namespace firy {
 			auto Root = std::make_shared<fat::sDir>(weak_from_this());
 			Root->mFirstCluster = mClusterRoot;
 			Root->mBlock = mBlockRoot;
-			Root->mSizeInBytes = mBootBlock->mBiosParams.mRootEntryCount * sizeof(fat::sFileEntry);
+			Root->sizeInBytesSet(mBootBlock->mBiosParams.mRootEntryCount * sizeof(fat::sFileEntry));
 
-			if (!Root->mSizeInBytes) {
-				Root->mSizeInBytes = directorySectors(blockToCluster(Root->mBlock)) * blockSize();
+			if (!Root->sizeInBytesGet()) {
+				Root->sizeInBytesSet(directorySectors(blockToCluster(Root->mBlock)) * blockSize());
 			}
 			mFsRoot = Root;
 			return entrysLoad(Root);

@@ -194,7 +194,6 @@ namespace firy {
 			};
 
 			struct sDir : public sEntry, public filesystem::sDirectory {
-				size_t mSizeInBytes;
 
 				sDir(wpFilesystem pFilesystem, const std::string& pName = "");
 			};
