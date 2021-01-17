@@ -29,12 +29,14 @@ namespace firy {
 	 */
 	spBuffer cBuffer::takeBytes(const size_t pBytes) {
 		tLockGuard lock(mLock);
-		spBuffer buffer = std::make_shared<tBuffer>();
 
-		buffer->resize(pBytes);
 		if (!pBytes || pBytes > size()) {
 			return 0;
 		}
+
+		spBuffer buffer = std::make_shared<tBuffer>();
+		buffer->resize(pBytes);
+
 		dirty(true);
 		memcpy(buffer->data(), data(), pBytes);
 		erase(begin(), begin() + pBytes);
