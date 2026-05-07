@@ -40,6 +40,7 @@ namespace firy {
 		 * Set the size of a chunk
 		 */
 		void cInterface::chunkSizeSet(const size_t pChunkSize) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			mSourceChunkSize = pChunkSize;
 			mBuffers.clear();
 		}
@@ -51,6 +52,7 @@ namespace firy {
 		 *  But dont want to adjust mSourceChunkSize to be a multiple of it
 		 */
 		bool cInterface::chunkPrepare(size_t pSize) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			size_t index = 0;
 			mBuffers.clear();
 			mSourceSize = pSize;
@@ -75,6 +77,7 @@ namespace firy {
 		 * Copy into a new buffer
 		 */
 		spBuffer cInterface::chunkCopyToBuffer(const size_t pOffset, const size_t pSize) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			auto result = std::make_shared<tBuffer>();
 			result->resize(pSize);
 
@@ -88,44 +91,48 @@ namespace firy {
 		 * Copy from source into a buffer 
 		 */
 		size_t cInterface::chunkCopyToPtr(uint8_t* pTarget, const size_t pSize, const size_t pOffset) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			size_t remainSize = pSize;
 			size_t mainoffset = pOffset;
 
 			auto ptr = pTarget;
 			auto ptrEnd = ptr + pSize;
+			size_t bytesRead = 0;
 
 			while (remainSize && ptr < ptrEnd) {
 				auto Buffer = chunk(mainoffset);
 				if (!Buffer)
-					return 0;
+					return bytesRead;
 
 				size_t offset = mainoffset % mSourceChunkSize;
 				size_t size = Buffer->size() - offset;
 
 				// Read past end of buffer?
 				if (Buffer->size() < offset) {
-					return (pTarget - ptr);
+					return bytesRead;
 				}
 
-				size_t maxSize = (pSize < size) ? pSize : size;
-				if (remainSize < maxSize)
-					maxSize = remainSize;
-
+				size_t maxSize = (remainSize < size) ? remainSize : size;
+				size_t bytesRemain = ptrEnd - ptr;
+				if (bytesRemain < maxSize)
+					maxSize = bytesRemain;
 
 				memcpy(ptr, Buffer->data() + offset, maxSize);
 				remainSize -= maxSize;
 				ptr += maxSize;
+				bytesRead += maxSize;
 
-				mainoffset += size;
+				mainoffset += maxSize;
 			}
 
-			return pSize;
+			return bytesRead;
 		}
 
 		/**
 		 * Write into the source chunk
 		 */
 		bool cInterface::chunkCopyFromBuffer(const size_t pOffset, spBuffer pBuffer) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			size_t remainSize = pBuffer->size();
 			size_t mainoffset = pOffset;
 
@@ -150,17 +157,18 @@ namespace firy {
 				remainSize -= maxSize;
 				ptrOffset += maxSize;
 
-				mainoffset += size;
+				mainoffset += maxSize;
 			}
 			
 			pBuffer->dirty(false);
-			return true;
+			return remainSize == 0;
 		}
 
 		/**
 		 * Write into the source chunk
 		 */
 		bool cInterface::chunkCopyFromPtr(uint8_t* pSource, const size_t pSize, const size_t pOffset) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			size_t remainSize = pSize;
 			size_t mainoffset = pOffset;
 
@@ -185,16 +193,17 @@ namespace firy {
 				remainSize -= maxSize;
 				ptrOffset += maxSize;
 
-				mainoffset += size;
+				mainoffset += maxSize;
 			}
 
-			return true;
+			return remainSize == 0;
 		}
 
 		/**
 		 * Size in bytes
 		 */
 		size_t cInterface::size() const { 
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			return mSourceSize; 
 		};
 
@@ -202,6 +211,8 @@ namespace firy {
 		 * Do we hold dirty buffers
 		 */
 		bool cInterface::hasDirtyBuffers() const {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
+
 			for (auto& buffer : mBuffers) {
 				if (buffer.second->isDirty())
 					return true;

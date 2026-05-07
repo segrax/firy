@@ -84,8 +84,8 @@ namespace firy {
 			/**
 			 * Create a file attached to this filesystem
 			 */
-			template <class tType, class ...Args> std::shared_ptr<tType> filesystemNodeCreate(const std::string& pName = "", ...) {
-				auto res = std::make_shared<tType>(weak_from_this(), pName, Args...);
+			template <class tType, class ...Args> std::shared_ptr<tType> filesystemNodeCreate(const std::string& pName = "", Args... pArgs) {
+				auto res = std::make_shared<tType>(weak_from_this(), pName, pArgs...);
 				res->dirty(true);
 				return res;
 			}

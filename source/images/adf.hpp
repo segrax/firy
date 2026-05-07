@@ -42,6 +42,14 @@ namespace firy {
 				DIRCACHE = 4			// AmigaDos 3 Directory cache
 			};
 
+			enum eDosVersion {
+				eDosVersion_Unknown = 0,
+				eDosVersion_OFS = 1,			// AmigaDos 1.x / classic OFS
+				eDosVersion_FFS_204 = 2,		// AmigaDos 2.04+ FFS
+				eDosVersion_FFS_3 = 3,			// AmigaDos 3 FFS (intl filename support)
+				eDosVersion_FFS_3_DirCache = 4	// AmigaDos 3 FFS + directory cache
+			};
+
 			enum eType {
 				eType_Unknown = 0,
 				FLOPPY_DD = 1,
@@ -295,8 +303,9 @@ namespace firy {
 			}
 
 			static std::vector<std::string> imageExtensions() {
-				return { "adf", "hdf" };
+				return { "adf", "fdi", "hdf" };
 			}
+			static bool imageTest(spSource pSource);
 
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
@@ -319,8 +328,12 @@ namespace firy {
 			adf::eType diskType() const;
 
 			inline bool isFFS() const { return mFFS; }
+			inline bool isOFS() const { return mDosVersion == adf::eDosVersion_OFS; }
 			inline bool isInternational() const { return mInternational; }
 			inline bool isDirCache() const { return mDirCache; }
+			inline adf::eDosVersion dosVersion() const { return mDosVersion; }
+
+			virtual std::string dosVersionName() const;
 
 		protected:
 			virtual uint32_t blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen);
@@ -329,6 +342,7 @@ namespace firy {
 			virtual bool filesystemChainLoad(spFile pFile) override;
 			virtual bool filesystemBitmapLoad() override;
 			virtual bool filesystemBitmapSave() override;
+			virtual bool filesystemDirectoryLoad(spDirectory pDir) override;
 
 			virtual bool filesystemSaveNative() override;
 			virtual bool filesystemSaveNode(spNode pNode, adf::spDir pParent);
@@ -353,10 +367,12 @@ namespace firy {
 
 			bool blockBootLoad();
 			bool blockRootLoad();
+			bool blockRootResolve();
 			bool blockCalculate();
+			bool blockIsValid(const tBlock pBlock) const;
 
 			spNode entryLoad(const tBlock pBlock);
-			bool entrysLoad(adf::spDir pNode);
+			bool entriesLoad(adf::spDir pNode);
 			int32_t entryCreate(adf::spDir pDir, spNode pEntry);
 
 		private:
@@ -365,6 +381,7 @@ namespace firy {
 			bool mFFS;
 			bool mInternational;
 			bool mDirCache;
+			adf::eDosVersion mDosVersion;
 
 			tBlock mBlockFirst;	// Block number of first
 			tBlock mBlockLast;	// Block number of last

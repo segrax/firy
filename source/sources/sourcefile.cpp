@@ -38,54 +38,58 @@ namespace firy {
 		 * Create a file
 		 */
 		bool cFile::create(const std::string pFile) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
+
 			mCreating = true;
-			return !open(pFile);
+			mSourceID = pFile;
+			mSourceSize = 0;
+			mBuffers.clear();
+			return true;
 		}
 
 		/**
 		 * Open a file
 		 */
 		bool cFile::open(const std::string pFile) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
+
 			mSourceID = pFile;
+			if (!gResources->isFile(pFile))
+				return false;
+
 			mSourceSize = gResources->FileSize(pFile);
-			return mSourceSize != 0;
+			mCreating = false;
+			return true;
 		}
 
 		/**
 		 * Save modified buffers to file
 		 */
 		bool cFile::save(const std::string pFile) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 
 			// Total new file?
 			if (pFile.size() && pFile != mSourceID) {
-
-				// TODO: We need to copy the source not in mBuffers
-
 				for (auto& buffer : mBuffers) {
-					size_t offset = buffer.first * mSourceChunkSize;
-					if (!gResources->FileWrite(pFile, offset, buffer.second)) {
-						if (gResources->FileSave(pFile, buffer.second))
-							continue;
-					}
-				}
+					auto dirty = buffer.second->isDirty();
+					if (!dirty)
+						continue;
 
+					size_t offset = buffer.first * mSourceChunkSize;
+					if (!gResources->FileWrite(pFile, offset, buffer.second))
+						return false;
+				}
 				return true;
 			}
 
 			for (auto& buffer : mBuffers) {
 				if (buffer.second->isDirty()) {
 					size_t offset = buffer.first * mSourceChunkSize;
-					if (!gResources->FileWrite(mSourceID, offset, buffer.second)) {
-
-						if (mCreating) {
-							if (gResources->FileSave(mSourceID, buffer.second))
-								continue;
-						}
-						gConsole->error("file", "Failed to save: ", mSourceID);
+					if (!gResources->FileWrite(mSourceID, offset, buffer.second))
 						return false;
-					}
 				}
 			}
+			mCreating = false;
 			return true;
 		}
 
@@ -93,6 +97,7 @@ namespace firy {
 		 * Clear all buffers
 		 */
 		void cFile::close() {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			mBuffers.clear();
 		}
 
@@ -100,6 +105,7 @@ namespace firy {
 		 * Get an image chunk, from memory or from disk
 		 */
 		spBuffer cFile::chunk(const size_t pOffset) {
+			std::lock_guard<std::recursive_mutex> lock(mAccess);
 			size_t index = pOffset / mSourceChunkSize;
 			size_t offset = pOffset % mSourceChunkSize;
 

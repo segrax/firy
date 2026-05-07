@@ -29,6 +29,16 @@ namespace firy {
 		namespace d64 {
 
 			/**
+			 * Supported D64 variants
+			 */
+			enum eType {
+				eType_Unknown,
+				eType_D64,
+				eType_D71,
+				eType_D81,
+			};
+
+			/**
 			 * File Types
 			 */
 			enum eFileType {
@@ -54,7 +64,7 @@ namespace firy {
 			 */
 			struct sTrackBam {
 				uint8_t mFreeSectors;	// Number of free sectors on this track
-				uint32_t mSectors;		// Sector 00 to 07,  08 to 15, 16 to 23
+				uint64_t mSectors;		// Sector bits: one bit per sector, 1 means free
 
 				sTrackBam() {
 					mFreeSectors = 0;
@@ -105,12 +115,20 @@ namespace firy {
 
 			virtual std::string imageTypeShort() const override { return "d64"; }
 			virtual std::string imageType() const override {
-				return "Commodore 64 Disk Image (D64)";
+				switch (mImageType) {
+				case d64::eType_D71:
+					return "Commodore 64 Disk Image (D71)";
+				case d64::eType_D81:
+					return "Commodore 64 Disk Image (D81)";
+				default:
+					return "Commodore 64 Disk Image (D64)";
+				}
 			}
 
 			static std::vector<std::string> imageExtensions() {
-				return { "d64" };
+				return { "d64", "d71", "d81" };
 			}
+			static bool imageTest(spSource pSource);
 
 			virtual bool filesystemCreate() override;
 			virtual bool filesystemLoad() override;
@@ -151,11 +169,23 @@ namespace firy {
 
 			virtual bool filesystemSaveNative() override;
 		private:
+			void imageTypeDetect();
+			size_t imageCapacity(const d64::eType pType) const;
+			size_t sectorsPerTrack(const tTrack pTrack) const;
+			tTrack sectorToSideTrack(const tTrack pTrack) const;
+			bool loadBamBlock(const tTrackSector pTS, const tTrack pStartTrack, const tTrack pEndTrack, const uint8_t pBytesPerTrackBam, const tSector pBamOffset, tTrack& pTrackCursor);
+			bool saveBamBlock(const tTrackSector pTS, const tTrack pStartTrack, const tTrack pEndTrack, const uint8_t pBytesPerTrackBam, const tSector pBamOffset, tTrack& pTrackCursor);
+			bool trackSectorValid(const tTrackSector& pTS) const;
+
 			std::vector<d64::sTrackBam> mBam;
 
 			uint8_t		mDosVersion;
 			uint16_t	mDosType;
 			uint16_t	mDiskID;
+			d64::eType	mImageType;
+			tTrack		mDirectoryTrack;
+			tSector		mDirectorySector;
+			std::vector<tTrackSector> mBAMSectors;
 		};
 
 	}

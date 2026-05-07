@@ -176,7 +176,7 @@ namespace firy {
 							p += 4;
 							break;
 						case SW_SHORT:
-							*(uint32_t*)(buf + p) = readBEWord(buf + p);
+							*(uint16_t*)(buf + p) = readBEWord(buf + p);
 							p += 2;
 							break;
 						case SW_CHAR:
@@ -274,17 +274,57 @@ namespace firy {
 			mFFS = false;
 			mInternational = false;
 			mDirCache = false;
+			mDosVersion = adf::eDosVersion_Unknown;
+		}
+
+		/**
+		 * Test if this source is an ADF/HDF image
+		 */
+		bool cADF::imageTest(spSource pSource) {
+			if (!pSource)
+				return false;
+
+			if (pSource->size() < sizeof(adf::sBootBlock))
+				return false;
+			if (pSource->size() % adf::gBytesPerBlockFFS)
+				return false;
+
+			auto bootBlock = pSource->objectGet<adf::sBootBlock>(0);
+			if (!bootBlock)
+				return false;
+			if (strncmp((const char*)bootBlock->dosType, "DOS", 3))
+				return false;
+
+			return true;
+		}
+
+		std::string cADF::dosVersionName() const {
+			switch (mDosVersion) {
+				case adf::eDosVersion_OFS:
+					return "OFS (classic)";
+				case adf::eDosVersion_FFS_204:
+					return "FFS 2.04+";
+				case adf::eDosVersion_FFS_3:
+					return "FFS 3.x";
+				case adf::eDosVersion_FFS_3_DirCache:
+					return "FFS 3.x (dircache)";
+				default:
+					return "Unknown";
+			}
 		}
 
 		/**
 		 * Generate the checksum for a bootblock
 		 */
 		uint32_t cADF::blockBootChecksum(const uint8_t* pBuffer, const size_t pBufferLen) {
-			int32_t d, newSum = 0;
-			for (size_t i = 0; i < 256; i++) {
+			uint32_t d;
+			uint32_t newSum = 0;
+			const auto wordCount = 256u;
+
+			for (size_t i = 0; i < wordCount; i++) {
 				if (i != 1) {
 					d = readBEDWord(pBuffer + i * 4);
-					if ((0xffffffffU - newSum) < (uint32_t)d)
+					if ((0xffffffffU - newSum) < d)
 						newSum++;
 					newSum += d;
 				}
@@ -296,12 +336,12 @@ namespace firy {
 		 * Generate the checksum for a regular block, skipping the checksum field
 		 */
 		uint32_t cADF::blockChecksum(const uint8_t* pBuffer, const size_t pBufferLen, const size_t pChecksumByte) {
-			int32_t newsum = 0;
+			uint32_t newsum = 0;
 			for (size_t i = 0; i < (pBufferLen / 4); i++)
 				if (i != (pChecksumByte / 4))	// Skip checksum
 					newsum += readBEDWord(pBuffer + i * 4);
 
-			return -newsum;
+			return static_cast<uint32_t>(0u - newsum);
 		}
 
 		/**
@@ -321,6 +361,9 @@ namespace firy {
 			mFsRoot = root;
 			
 			mFFS = true;
+			mDosVersion = adf::eDosVersion_FFS_204;
+			mInternational = false;
+			mDirCache = false;
 
 			// Write bootblock
 			{
@@ -330,6 +373,7 @@ namespace firy {
 				mBootBlock->dosType[2] = 'S';
 
 				mBootBlock->dosFlags = adf::FFS;
+				mFFS = true;
 				memcpy(mBootBlock->data, adf::gBootCode, sizeof(adf::gBootCode));
 				blockSaveChecksum(0, mBootBlock);
 			}
@@ -353,42 +397,43 @@ namespace firy {
 
 				mBitmapBlocks.push_back(blockObjectCreate<adf::sBitmapBlock>());
 
-				size_t index = 1;
-				tBlock lastBitmapBlock = (mBlockLast - 1) / (127 * 32);
-				while (mBitmapBlocks.size() < lastBitmapBlock) {
-					mRootBlock->bmPages[index++] = (int32_t)blockUseSingle();
-					if (index >= adf::BM_SIZE) {
-						break;
-					}
-					mBitmapBlocks.push_back({});
+				const size_t bitmapBitsPerBlock = 127u * 32u;
+				const size_t bitmapDataBlocks = (mBlockCount > 2) ? (mBlockCount - 2) : 0;
+				const size_t lastBitmapBlock = (bitmapDataBlocks + bitmapBitsPerBlock - 1) / bitmapBitsPerBlock;
+
+				// Root block stores up to adf::BM_SIZE bitmap block pointers.
+				// For harddisks >50MB, extra bitmap blocks are chained via bmExt entries.
+				size_t rootPageIndex = 1;
+				while ((mBitmapBlocks.size() < lastBitmapBlock) && (rootPageIndex < adf::BM_SIZE)) {
+					mRootBlock->bmPages[rootPageIndex++] = (int32_t)blockUseSingle();
+					mBitmapBlocks.push_back(blockObjectCreate<adf::sBitmapBlock>());
 				}
 
 				if (mBitmapBlocks.size() < lastBitmapBlock)
 					mRootBlock->bmExt = (int32_t)blockUseSingle();
 
 				auto ext = mRootBlock->bmExt;
-				auto extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
-
 				while (mBitmapBlocks.size() < lastBitmapBlock) {
+					auto extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
+					size_t extPageIndex = 0;
 
-					extBlock->bmPages[index++] = (int32_t)blockUseSingle();
-					mBitmapBlocks.push_back({});
+					while ((mBitmapBlocks.size() < lastBitmapBlock) && (extPageIndex < adf::BM_SIZE)) {
+						extBlock->bmPages[extPageIndex++] = (int32_t)blockUseSingle();
+						mBitmapBlocks.push_back(blockObjectCreate<adf::sBitmapBlock>());
+					}
 
-					// End of this block?
-					if (index >= adf::BM_SIZE) {
-						if (mBitmapBlocks.size() < lastBitmapBlock)
-							extBlock->nextBlock = (int32_t)blockUseSingle();
+					if (mBitmapBlocks.size() < lastBitmapBlock) {
+						extBlock->nextBlock = (int32_t)blockUseSingle();
 					}
 
 					blockSaveNoCheck(ext, extBlock);
-					if (extBlock->nextBlock) {
-						ext = extBlock->nextBlock;
-						extBlock = blockObjectCreate<adf::sBitmapExtBlock>();
-					}
+					if (!extBlock->nextBlock)
+						break;
+					ext = extBlock->nextBlock;
 				}
 
 				// Mark all blocks free
-				for (int x = 2; x < mBlockLast; ++x) {
+				for (tBlock x = 2; x <= mBlockLast; ++x) {
 					blockSet(x, false);
 				}
 
@@ -427,6 +472,8 @@ namespace firy {
 				return false;
 			if (!blockBootLoad())
 				return false;
+			if (!blockRootResolve())
+				return false;
 			if (!blockRootLoad())
 				return false;
 
@@ -437,7 +484,9 @@ namespace firy {
 			Root->mBlockNumber = mBlockRoot;
 
 			mFsRoot = Root;
-			return entrysLoad(Root);
+			// Lazy-load directory entries when the folder is actually opened.
+			Root->entriesLoadedSet(false);
+			return true;
 		}
 
 		/**
@@ -466,6 +515,9 @@ namespace firy {
 		 */
 		template <class tBlockType> bool cADF::filesystemSaveFileToBlocks(std::shared_ptr<tBlockType> pBlock, spBuffer pBuffer, size_t pSequenceNumber) {
 			pBlock->highSeq = 0;
+			std::fill(std::begin(pBlock->dataBlocks), std::end(pBlock->dataBlocks), 0);
+			pBlock->firstData = 0;
+			pBlock->extension = 0;
 
 			tBlock nextBlock = blockUseSingle();
 
@@ -683,7 +735,7 @@ namespace firy {
 					return -1;
 				}
 
-				// Check if its the file we are trtying to save
+				// Check if its the file we are trying to save
 				if (nextBlock->nameLen == pNode->nameGet().size()) {
 					auto name = std::string(nextBlock->name, min(nextBlock->nameLen, adf::gFilenameMaximumLength));
 
@@ -708,26 +760,41 @@ namespace firy {
 		/**
 		 * Load the contents of a directory
 		 */
-		bool cADF::entrysLoad(adf::spDir pDir) {
+		bool cADF::entriesLoad(adf::spDir pDir) {
+			pDir->mNodes.clear();
+			pDir->entriesLoadedSet(false);
 			auto block = blockLoad<adf::sEntryBlock>(pDir->mBlockNumber);
 			if (!block)
 				return false;
+			std::vector<tBlock> visited;
 
 			for (auto& hash : block->hashTable) {
 				if (hash) {
+					if (!blockIsValid((tBlock)hash) ||
+						std::find(visited.begin(), visited.end(), (tBlock)hash) != visited.end())
+						return false;
+					visited.push_back((tBlock)hash);
+
 					auto entry = entryLoad(hash);
 					if (!entry) {
 						if(warning("Invalid directory entry found")->isAborted())
-							continue;
+							return false;
+						continue;
 					}
 					pDir->nodeAdd(entry);
 
 					// Load any further files with a matching hash
 					tBlock nextSector = std::dynamic_pointer_cast<adf::sEntry>(entry)->mNextSameHash;
 					while (nextSector) {
+						if (!blockIsValid(nextSector) ||
+							std::find(visited.begin(), visited.end(), nextSector) != visited.end())
+							return false;
+
+						visited.push_back(nextSector);
 						auto entry = entryLoad(nextSector);
 						if (!entry) {
-							// TODO: Error
+							if (warning("Invalid directory chain entry")->isAborted())
+								return false;
 							break;
 						}
 
@@ -794,9 +861,6 @@ namespace firy {
 
 			entry->mBlockNumber = pBlock;
 			entry->mNextSameHash = blockEntry->nextSameHash;
-
-			if(blockEntry->secType == adf::ST_DIR)
-				entrysLoad(std::dynamic_pointer_cast<adf::sDir>(node));
 
 			node->dirty(false);
 			return node;
@@ -929,7 +993,7 @@ namespace firy {
 					return false;
 				}
 
-				// Check if its the file we are trtying to save
+				// Check if its the file we are trying to save
 				if (nextBlock->nameLen == pFile->nameGet().size()) {
 					std::vector<sAccessUnit> free;
 
@@ -1036,10 +1100,19 @@ namespace firy {
 		 * Is a block free
 		 */
 		bool cADF::blockIsFree(const tBlock pBlock) const {
-			tBlock sectOfMap = pBlock - 2;
+			if (pBlock < (mBlockFirst + 2))
+				return false;
+			if (pBlock > mBlockLast)
+				return false;
+
+			tBlock sectOfMap = pBlock - (mBlockFirst + 2);
 			tBlock block = sectOfMap / (127 * 32);
 			tBlock indexInMap = (sectOfMap / 32) % 127;
 			if (block >= mBitmapBlocks.size())
+				return false;
+			if (!mBitmapBlocks[block])
+				return false;
+			if (indexInMap >= 128)
 				return false;
 
 			return ((mBitmapBlocks[block]->map[indexInMap]
@@ -1050,11 +1123,18 @@ namespace firy {
 		 * Set a block used
 		 */
 		bool cADF::blockSet(const tBlock pBlock, const bool pValue) {
-			tBlock sectOfMap = pBlock - 2;
+			if (pBlock < (mBlockFirst + 2))
+				return false;
+			if (pBlock > mBlockLast)
+				return false;
+
+			tBlock sectOfMap = pBlock - (mBlockFirst + 2);
 			tBlock block = sectOfMap / (127 * 32);
 			tBlock indexInMap = (sectOfMap / 32) % 127;
 
 			if (block >= mBitmapBlocks.size())
+				return false;
+			if (!mBitmapBlocks[block])
 				return false;
 
 			dirty();
@@ -1116,7 +1196,7 @@ namespace firy {
 		 */
 		std::vector<sAccessUnit> cADF::blocksGetFree() const {
 			std::vector<sAccessUnit> freeBlocks;
-			for (tBlock j = mBlockFirst + 2; j <= (mBlockLast - mBlockFirst); j++)
+			for (tBlock j = mBlockFirst + 2; j <= mBlockLast; j++)
 				if (blockIsFree(j))
 					freeBlocks.push_back({ j });
 
@@ -1147,19 +1227,36 @@ namespace firy {
 			adf::spFile File = std::dynamic_pointer_cast<adf::sFile>(pFile);
 
 			pFile->mChain.clear();
+			std::vector<tBlock> visited;
+
+			if (!File || !blockIsValid(File->mBlockNumber)) {
+				return false;
+			}
+
 			auto blockFile = blockLoad<adf::sFileHeaderBlock>(File->mBlockNumber);
 			if (!blockFile) {
 				return false;
 			}
+			visited.push_back(File->mBlockNumber);
+
 			for (int index = (adf::gDataBlocksMax - 1); index >= 0; --index) {
 				if (!blockFile->dataBlocks[index])
 					break;
+				if (!blockIsValid((tBlock)blockFile->dataBlocks[index])) {
+					return false;
+				}
 
 				pFile->mChain.push_back( (tBlock) blockFile->dataBlocks[index] );
 			}
 
 			tBlock nextSector = blockFile->extension;
 			while (nextSector) {
+				if (!blockIsValid(nextSector) ||
+					std::find(visited.begin(), visited.end(), nextSector) != visited.end()) {
+					return false;
+				}
+				visited.push_back(nextSector);
+
 				auto blockExt = blockLoad<adf::sFileExtBlock>(nextSector);
 				if (!blockExt) {
 					error("sFileExtBlock not found");
@@ -1169,6 +1266,9 @@ namespace firy {
 				for (int index = adf::gDataBlocksMax - 1; index >= 0; --index) {
 					if (!blockExt->dataBlocks[index])
 						break;
+					if (!blockIsValid((tBlock)blockExt->dataBlocks[index])) {
+						return false;
+					}
 
 					pFile->mChain.push_back((tBlock)blockExt->dataBlocks[index]);
 				}
@@ -1177,16 +1277,33 @@ namespace firy {
 			}
 			return true;
 		}
+
+		bool cADF::filesystemDirectoryLoad(spDirectory pDir) {
+			auto dir = std::dynamic_pointer_cast<adf::sDir>(pDir);
+			if (!dir)
+				return false;
+
+			return entriesLoad(dir);
+		}
 		
 		/**
 		 * Load the disk bitmap
 		 */
 		bool cADF::filesystemBitmapLoad() {
 			std::shared_ptr<adf::sRootBlock> block = blockLoad<adf::sRootBlock>(mBlockRoot);
+			if (!block)
+				return false;
 			mBitmapBlocks.clear();
+			std::vector<tBlock> visited;
 
 			for (auto& page : block->bmPages) {
 				if (page) {
+					if (!blockIsValid((tBlock)page) ||
+						std::find(visited.begin(), visited.end(), (tBlock)page) != visited.end()) {
+						return false;
+					}
+					visited.push_back((tBlock)page);
+
 					auto block = blockLoad<adf::sBitmapBlock>(page);
 					if (!block) {
 						error("bitmap invalid block number");
@@ -1198,9 +1315,23 @@ namespace firy {
 
 			auto blockBitmapExt = block->bmExt;
 			while (blockBitmapExt) {
+				if (!blockIsValid(blockBitmapExt) ||
+					std::find(visited.begin(), visited.end(), blockBitmapExt) != visited.end()) {
+					return false;
+				}
+				visited.push_back(blockBitmapExt);
+
 				auto blockExt = blockLoadNoCheck<adf::sBitmapExtBlock>(blockBitmapExt);
+				if (!blockExt)
+					return false;
 				for(auto& page : blockExt->bmPages) {
 					if (page) {
+						if (!blockIsValid((tBlock)page) ||
+							std::find(visited.begin(), visited.end(), (tBlock)page) != visited.end()) {
+							return false;
+						}
+						visited.push_back((tBlock)page);
+
 						auto block = blockLoad<adf::sBitmapBlock>(page);
 						if (!block) {
 							error("bitmap invalid block number");
@@ -1221,7 +1352,10 @@ namespace firy {
 		 */
 		bool cADF::filesystemBitmapSave() {
 			std::shared_ptr<adf::sRootBlock> block = blockLoad<adf::sRootBlock>(mBlockRoot);
+			if (!block)
+				return false;
 
+			std::vector<tBlock> visited;
 			tBlock index = 0;
 
 			tBlock ext = block->bmExt;
@@ -1229,32 +1363,48 @@ namespace firy {
 			int32_t* pages = block->bmPages;
 			int32_t maxpages = adf::BM_SIZE;
 
-			// 
 			for (auto& bitmapBlock : mBitmapBlocks) {
-				if (pages[index]) {
-					blockSaveChecksum(pages[index], bitmapBlock);
-				}
+				if (!bitmapBlock)
+					continue;
 
-				if (++index >= maxpages) {
-					index = 0;
+				if (index >= maxpages) {
+					if (!ext)
+						return false;
+
+					if (!blockIsValid(ext) ||
+						std::find(visited.begin(), visited.end(), ext) != visited.end()) {
+						return false;
+					}
+					visited.push_back(ext);
 
 					blkext = blockLoadNoCheck<adf::sBitmapExtBlock>(ext);
+					if (!blkext)
+						return false;
 					ext = blkext->nextBlock;
 					pages = blkext->bmPages;
 					maxpages = 127;
+					index = 0;
 				}
 
+				if (pages[index]) {
+					if (!blockSaveChecksum(pages[index], bitmapBlock))
+						return false;
+				}
+
+				++index;
 			}
 
 			return blockRootLoad();
 		}
 
-		bool cADF::blockBootLoad() {
-			mBootBlock = blockLoad<adf::sBootBlock>(0);
-			if (!mBootBlock)
-				return false;
+		bool cADF::blockIsValid(const tBlock pBlock) const {
+			return (pBlock >= mBlockFirst && pBlock <= mBlockLast);
+		}
 
-			if (strncmp((const char*)mBootBlock->dosType, "DOS", 3)) {
+		bool cADF::blockBootLoad() {
+			// Adf bootblock is always stored in block 0 (as used by this plugin image format)
+			mBootBlock = blockLoad<adf::sBootBlock>(0);
+			if (!mBootBlock || strncmp((const char*)mBootBlock->dosType, "DOS", 3)) {
 				error("DOS marker not found in boot block");
 				return false;
 			}
@@ -1262,6 +1412,16 @@ namespace firy {
 			mFFS = mBootBlock->dosFlags& adf::eFlags::FFS;
 			mInternational = mBootBlock->dosFlags& adf::eFlags::INTL;
 			mDirCache =	mBootBlock->dosFlags& adf::eFlags::DIRCACHE;
+
+			if (mFFS && mDirCache)
+				mDosVersion = adf::eDosVersion_FFS_3_DirCache;
+			else if (mFFS && mInternational)
+				mDosVersion = adf::eDosVersion_FFS_3;
+			else if (mFFS)
+				mDosVersion = adf::eDosVersion_FFS_204;
+			else
+				mDosVersion = adf::eDosVersion_OFS;
+
 			return true;
 		}
 
@@ -1297,18 +1457,35 @@ namespace firy {
 		bool cADF::blockRootLoad() {
 
 			auto block = blockLoad<adf::sRootBlock>(mBlockRoot);
+			if (!block)
+				return false;
+
 			mFsName = std::string(block->diskName, min(adf::gFilenameMaximumLength, block->nameLen));
 			
-			return (block != 0);
+			return true;
+		}
+
+		bool cADF::blockRootResolve() {
+			if (!mBootBlock) {
+				return false;
+			}
+			
+			if (diskType() != adf::eType::HARDDRIVE) {
+				auto root = mBootBlock->rootBlock;
+				if (root > (int32_t)mBlockFirst && root <= (int32_t)mBlockLast)
+					mBlockRoot = (tBlock)root;
+			}
+
+			return true;
 		}
 
 		/**
 		 * Swap the endian in blocks
 		 */
-		template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
+			template <class tBlockType> void cADF::blockSwapEndian(std::shared_ptr<tBlockType> pBlock) {
 
-			if (typeid(tBlockType) == typeid(adf::sBootBlock))
-				adf::blockSwapEndian((uint8_t*)pBlock.get(), 0);
+				if (typeid(tBlockType) == typeid(adf::sBootBlock))
+					adf::blockSwapEndian((uint8_t*)pBlock.get(), 0);
 
 			if (typeid(tBlockType) == typeid(adf::sRootBlock))
 				adf::blockSwapEndian((uint8_t*)pBlock.get(), 1);
@@ -1328,9 +1505,12 @@ namespace firy {
 			if (typeid(tBlockType) == typeid(adf::sBitmapBlock))
 				adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
 
-			if (typeid(tBlockType) == typeid(adf::sBitmapExtBlock))
-				adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
-		}
+				if (typeid(tBlockType) == typeid(adf::sBitmapExtBlock))
+					adf::blockSwapEndian((uint8_t*)pBlock.get(), 5);
+
+				if (typeid(tBlockType) == typeid(adf::sDirCacheBlock))
+					adf::blockSwapEndian((uint8_t*)pBlock.get(), 4);
+			}
 
 		/**
 		 * Load a block, dont validate checksum
@@ -1363,12 +1543,6 @@ namespace firy {
 
 				if (blockptr->data[0] != 0) {
 					if (checksum != block->checkSum) {
-
-						// If its not even a dos disk, just fail
-						if (strncmp((const char*)blockptr->dosType, "DOS", 3)) {
-							return 0;
-						}
-
 						if(warning("Boot Block checksum fail")->isAborted())
 							return 0;
 					}
@@ -1382,8 +1556,7 @@ namespace firy {
 			blockSwapEndian(block);
 
 			if (checksum != block->checkSum) {
-				if (warning("Block checksum fail")->isAborted())
-					return 0;
+				warning("Block checksum fail");
 			}
 			return block;
 		}

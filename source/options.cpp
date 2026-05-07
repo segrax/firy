@@ -85,6 +85,6 @@ namespace firy {
 	 * Enable warning display
 	 */
 	void cOptions::warningShowSet(const bool pEnabled) {
-		mErrorShow = pEnabled;
+		mWarningShow = pEnabled;
 	}
 }

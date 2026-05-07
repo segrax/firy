@@ -28,6 +28,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <shared_mutex>
 
 #ifdef _MSC_VER
 #include <Windows.h>
@@ -107,9 +108,14 @@ namespace firy {
 
 	inline std::string stringRip(const uint8_t* pBuffer, uint8_t pTerminator, size_t pLengthMax) {
 		std::string tmpString;
+		if (!pBuffer || !pLengthMax)
+			return tmpString;
 
-		for (size_t i = 0; *pBuffer != pTerminator && i <= pLengthMax; ++i)
-			tmpString += (char)* pBuffer++;
+		for (size_t i = 0; i < pLengthMax; ++i) {
+			if (pBuffer[i] == pTerminator)
+				break;
+			tmpString += (char)pBuffer[i];
+		}
 
 		return tmpString;
 	}
@@ -135,6 +141,7 @@ namespace firy {
 		spSource openLocalFile(const std::string& pFilename);
 		spImage openImage(const std::string& pFilename);
 		template <class tImageType> std::shared_ptr<tImageType> openImageFile(const std::string& pFilename, spOptions pOptions = gOptionsDefault, const bool pIgnoreValid = false);
+		template <class tImageType> std::shared_ptr<tImageType> openImageFile(spSource pSource, spOptions pOptions = gOptionsDefault, const bool pIgnoreValid = false);
 		
 		template <class tImageType> std::shared_ptr<tImageType> createImageFile(const std::string& pFilename) {
 			auto image = std::make_shared<tImageType>(createLocalFile(pFilename));
@@ -147,6 +154,11 @@ namespace firy {
 		}
 
 		static std::vector<std::string> getKnownExtensions();
+	private:
+		mutable std::mutex mSourceCacheMutex;
+		std::map<std::string, std::weak_ptr<sources::cInterface>> mSourceCache;
+		std::map<std::string, std::weak_ptr<std::mutex>> mSourcePathLocks;
+		std::shared_ptr<std::mutex> sourcePathLock(const std::string& pPath);
 	};
 
 	/**

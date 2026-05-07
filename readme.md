@@ -6,6 +6,6 @@
 
 Library which provides a standard interface to multiple image types
 
-* ADF/HDF
-* D64
-* FAT 12/16/32 (Read only)
+* ADF / FDI / HDF (Amiga image formats)
+* D64 / D71 / D81 (Commodore disk formats)
+* FAT 12/16/32 (Read only) including extended-partition discovery

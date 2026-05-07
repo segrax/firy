@@ -30,6 +30,8 @@ namespace firy {
 		public:
 			sNode(wpFilesystem pFilesystem, const std::string& pName = "");
 			virtual spNode getByName(const std::string& pName, const bool pCaseSensitive = false);
+
+			inline wpFilesystem filesystemGet() const { return mFilesystem; }
 		
 			inline std::string nameGet() const { return mName; }
 			inline void nameSet(const std::string pName) { mName = pName; dirty(); }

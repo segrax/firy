@@ -49,10 +49,17 @@ namespace firy {
 	std::string cBuffer::getString(const size_t pOffset, const size_t pLengthMax, const uint8_t pTerminator) {
 		tLockGuard lock(mLock);
 		std::string tmpString;
+		if (pOffset >= size())
+			return tmpString;
+
+		size_t remaining = size() - pOffset;
 		const uint8_t* buffer = reinterpret_cast<const uint8_t*>(&at(pOffset));
 
-		for (size_t i = 0; *buffer != pTerminator && i <= pLengthMax; ++i)
-			tmpString += (char)* buffer++;
+		for (size_t i = 0; i < pLengthMax && i < remaining; ++i) {
+			if (buffer[i] == pTerminator)
+				break;
+			tmpString += (char)buffer[i];
+		}
 
 		return tmpString;
 	}
@@ -300,7 +307,7 @@ namespace firy {
 		tLockGuard lock(mLock); 
 		tLockGuard lock2(pBuffer->mLock);
 		size_t maxSize = size() - pOffset;
-		if (maxSize < pBuffer->size())
+		if (maxSize < pSize)
 			return false;
 
 		if (pBuffer->size() - pOffsetStart < pSize) {

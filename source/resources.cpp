@@ -24,10 +24,43 @@
 #include <sstream>
 #include <fstream>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <filesystem>
 
 namespace firy {
+
+	namespace {
+#ifdef _MSC_VER
+		class cProcessFileLock {
+		public:
+			cProcessFileLock(const std::string& pFile, const bool pExclusive)
+				: mLockValid(true), mHandle(INVALID_HANDLE_VALUE) {
+				(void)pFile;
+				(void)pExclusive;
+			}
+
+			~cProcessFileLock() {
+				if (mHandle != INVALID_HANDLE_VALUE) {
+					CloseHandle(mHandle);
+				}
+				mHandle = INVALID_HANDLE_VALUE;
+			}
+
+			bool valid() const { return mLockValid; }
+
+		private:
+			bool		mLockValid;
+			HANDLE		mHandle;
+			OVERLAPPED	mOverlap = {};
+		};
+#else
+		class cProcessFileLock {
+		public:
+			cProcessFileLock(const std::string& pFile, const bool pExclusive) {}
+			bool valid() const { return true; }
+		};
+#endif
+	}
+
 	std::string cResources::getcwd() {
 		return std::filesystem::current_path().string();
 	}
@@ -55,37 +88,86 @@ namespace firy {
 		return files;
 	}
 
+	std::string cResources::normalizePath(const std::string& pFile) const {
+		if (pFile.empty())
+			return pFile;
+
+		try {
+			auto abs = std::filesystem::absolute(pFile);
+			std::error_code ec;
+			auto canonical = std::filesystem::weakly_canonical(abs, ec);
+			if (ec)
+				return abs.string();
+
+			return canonical.string();
+		}
+		catch (...) {
+			return pFile;
+		}
+	}
+
+	std::shared_ptr<std::shared_mutex> cResources::fileLock(const std::string& pFile) const {
+		const auto file = normalizePath(pFile);
+		std::lock_guard<std::mutex> lock(mFileMutex);
+
+		auto it = mFileLocks.find(file);
+		if (it != mFileLocks.end())
+			return it->second;
+
+		auto value = std::make_shared<std::shared_mutex>();
+		mFileLocks.insert({ file, value });
+		return value;
+	}
+
+	std::string cResources::FileReadStr(const std::string& pFile) {
+		auto buffer = FileRead(pFile);
+		if (!buffer || buffer->size() == 0)
+			return {};
+
+		return std::string((char*)buffer->data(), buffer->size());
+	}
+
 	spBuffer cResources::FileRead(const std::string& pFile, const size_t pOffset, const size_t pSize) {
+		auto file = normalizePath(pFile);
+		auto lock = fileLock(file);
+		std::shared_lock<std::shared_mutex> threadLock(*lock);
+
+#ifdef _MSC_VER
+		cProcessFileLock processLock(file, false);
+		if (!processLock.valid())
+			return std::make_shared<tBuffer>();
+#endif
+
 		auto fileBuffer = std::make_shared<tBuffer>();
 
-		// Attempt to open the file
-		auto fileStream = new std::ifstream(pFile.c_str(), std::ios::binary);
-		if (fileStream->is_open() != false) {
-			fileStream->seekg(0, std::ios::end);
-			size_t maxSize = fileStream->tellg();
-			maxSize -= pOffset;
-			fileStream->seekg(std::ios::beg);
+		std::ifstream fileStream(file, std::ios::binary);
+		if (fileStream.is_open() == false)
+			return fileBuffer;
 
-			// Entire file?
-			if (!pSize) {
-				fileBuffer->resize(maxSize);
-			} else {
-				fileBuffer->resize( (pSize < maxSize) ? pSize : maxSize);
-			}
+		fileStream.seekg(0, std::ios::end);
+		if (!fileStream)
+			return fileBuffer;
 
-			// Read from?
-			if (pOffset)
-				fileStream->seekg(pOffset, std::ios::beg);
+		auto end = fileStream.tellg();
+		if (end == -1)
+			return fileBuffer;
 
-			// Allocate buffer, and read the file into it
-			fileStream->read((char*)fileBuffer->data(), fileBuffer->size());
-			if (!(*fileStream))
-				fileBuffer->clear();
+		size_t maxSize = static_cast<size_t>(end);
+		if (pOffset >= maxSize)
+			return fileBuffer;
+
+		maxSize -= pOffset;
+		size_t readSize = pSize;
+		if (!readSize || readSize > maxSize)
+			readSize = maxSize;
+
+		fileBuffer->resize(readSize);
+		fileStream.seekg(pOffset, std::ios::beg);
+		fileStream.read((char*)fileBuffer->data(), readSize);
+		if (!fileStream) {
+			auto read = static_cast<size_t>(fileStream.gcount());
+			fileBuffer->resize(read);
 		}
-
-		// Close the stream
-		fileStream->close();
-		delete fileStream;
 
 		fileBuffer->dirty(false);
 		// All done ;)
@@ -93,18 +175,56 @@ namespace firy {
 	}
 
 	bool cResources::FileWrite(const std::string& pFile, const size_t pOffset, spBuffer pBuffer) {
-		std::ofstream outfile(pFile, std::ios::in | std::ios::out | std::ofstream::binary);
-		if (!outfile.is_open())
+		if (!pBuffer)
 			return false;
+
+		auto file = normalizePath(pFile);
+		auto lock = fileLock(file);
+		std::unique_lock<std::shared_mutex> threadLock(*lock);
+
+#ifdef _MSC_VER
+		cProcessFileLock processLock(file, true);
+		if (!processLock.valid())
+			return false;
+#endif
+
+		if (!pBuffer->size()) {
+			pBuffer->dirty(false);
+			return true;
+		}
+
+		std::fstream outfile(file, std::ios::binary | std::ios::in | std::ios::out);
+		if (!outfile.is_open()) {
+			std::ofstream create(file, std::ios::binary);
+			if (!create.is_open())
+				return false;
+			create.close();
+
+			outfile.open(file, std::ios::binary | std::ios::in | std::ios::out);
+			if (!outfile.is_open())
+				return false;
+		}
+
 		outfile.seekp(pOffset, std::ios::beg);
 		outfile.write((const char*)pBuffer->data(), pBuffer->size());
+		outfile.flush();
 		outfile.close();
 		pBuffer->dirty(false);
 		return true;
 	}
 
 	bool cResources::FileSave(const std::string& pFile, const std::string& pData) {
-		std::ofstream outfile(pFile, std::ofstream::binary);
+		auto file = normalizePath(pFile);
+		auto lock = fileLock(file);
+		std::unique_lock<std::shared_mutex> threadLock(*lock);
+
+#ifdef _MSC_VER
+		cProcessFileLock processLock(file, true);
+		if (!processLock.valid())
+			return false;
+#endif
+
+		std::ofstream outfile(file, std::ofstream::binary | std::ofstream::trunc);
 		if (!outfile.is_open())
 			return false;
 		outfile << pData;
@@ -113,7 +233,20 @@ namespace firy {
 	}
 
 	bool cResources::FileSave(const std::string& pFile, const spBuffer pData) {
-		std::ofstream outfile(pFile, std::ofstream::binary);
+		if (!pData)
+			return false;
+
+		auto file = normalizePath(pFile);
+		auto lock = fileLock(file);
+		std::unique_lock<std::shared_mutex> threadLock(*lock);
+
+#ifdef _MSC_VER
+		cProcessFileLock processLock(file, true);
+		if (!processLock.valid())
+			return false;
+#endif
+
+		std::ofstream outfile(file, std::ofstream::binary | std::ofstream::trunc);
 		if (!outfile.is_open())
 			return false;
 		outfile.write((const char*) pData->data(), pData->size());
@@ -122,40 +255,35 @@ namespace firy {
 	}
 
 	size_t cResources::FileSize(const std::string& pFile) const {
+		auto file = normalizePath(pFile);
+		auto lock = fileLock(file);
+		std::shared_lock<std::shared_mutex> threadLock(*lock);
+
+#ifdef _MSC_VER
+		cProcessFileLock processLock(file, false);
+		if (!processLock.valid())
+			return 0;
+#endif
+
 		std::streampos size = 0;
-		auto fileStream = new std::ifstream(pFile.c_str(), std::ios::binary);
-		if (fileStream->is_open()) {
-			fileStream->seekg(0, std::ios::end);
-			size = fileStream->tellg();
-			fileStream->close();
+		auto fileStream = std::ifstream(file.c_str(), std::ios::binary);
+		if (fileStream.is_open()) {
+			fileStream.seekg(0, std::ios::end);
+			size = fileStream.tellg();
 		}
 		return size;
 	}
 
 	bool cResources::FileExists(const std::string& pPath) const {
-		struct stat info;
-
-		if (stat(pPath.c_str(), &info) != 0)
-			return false;
-		else if (info.st_mode & S_IFDIR)
-			return true;
-		else if (info.st_mode & S_IFMT)
-			return true;
-
-		return false;
+		auto path = normalizePath(pPath);
+		std::error_code ec;
+		return std::filesystem::exists(std::filesystem::path(path), ec);
 	}
 
 	bool cResources::isFile(const std::string& pPath) const {
-		struct stat info;
-
-		if (stat(pPath.c_str(), &info) != 0)
-			return false;
-		else if (info.st_mode & S_IFDIR)
-			return false;
-		else if (info.st_mode & S_IFMT)
-			return true;
-
-		return false;
+		auto path = normalizePath(pPath);
+		std::error_code ec;
+		return std::filesystem::is_regular_file(std::filesystem::path(path), ec);
 	}
 
 }

@@ -219,6 +219,7 @@ namespace firy {
 			static std::vector<std::string> imageExtensions() {
 				return { "img", "ima" };
 			}
+			static bool imageTest(spSource pSource);
 
 
 			virtual std::string filesystemNameGet() const;
@@ -257,6 +258,7 @@ namespace firy {
 			virtual bool filesystemChainLoad(spFile pFile);
 			virtual bool filesystemBitmapLoad();
 			virtual bool filesystemBitmapSave();
+			virtual bool filesystemDirectoryLoad(spDirectory pDir) override;
 			virtual bool filesystemSaveNative() { gConsole->error("fat", "not implemented"); return false; }
 
 		private:
@@ -266,7 +268,7 @@ namespace firy {
 
 			spNode entryLoad(const fat::sFileEntry* pEntry, std::vector<fat::sFileLongNameEntry*>& pLongEntries);
 
-			bool entrysLoad(fat::spDir pDir);
+			bool entriesLoad(fat::spDir pDir);
 
 		private:
 			std::shared_ptr<fat::sBootRecordBlock> mBootBlock;

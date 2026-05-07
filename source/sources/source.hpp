@@ -71,6 +71,7 @@ namespace firy {
 			size_t		mSourceSize;					// Total size of image
 			bool		mCreating;						// Is the source being created
 			std::string mSourceID;
+			mutable std::recursive_mutex mAccess;
 		};
 
 		

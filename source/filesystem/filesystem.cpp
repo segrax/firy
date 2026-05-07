@@ -87,13 +87,18 @@ namespace firy {
 		 *
 		 */
 		sDirectory::sDirectory(wpFilesystem pFilesystem, const std::string& pName) : sNode(pFilesystem, pName) {
-
+			mNodesLoaded = false;
 		}
 
 		/**
 		 *
 		 */
 		spNode sDirectory::getByName(const std::string& pName, const bool pCaseSensitive) {
+			if (!mNodesLoaded) {
+				auto fs = mFilesystem.lock();
+				if (fs && !fs->filesystemDirectoryLoad(std::dynamic_pointer_cast<sDirectory>(shared_from_this())))
+					return 0;
+			}
 
 			for (auto& node : mNodes) {
 				if (pCaseSensitive) {
@@ -123,6 +128,15 @@ namespace firy {
 		 * Remove from the file system
 		 */
 		bool sDirectory::remove() {
+			auto fs = mFilesystem.lock();
+			if (!fs)
+				return false;
+
+			if (!entriesLoaded()) {
+				if (!fs->filesystemDirectoryLoad(std::dynamic_pointer_cast<sDirectory>(shared_from_this())))
+					return false;
+			}
+
 			dirty();
 			for (auto& node : mNodes) {
 				node->mParent.reset();
@@ -141,6 +155,7 @@ namespace firy {
 			pNode->mParent = std::dynamic_pointer_cast<sDirectory>(shared_from_this());
 
 			mNodes.push_back(pNode);
+			entriesLoadedSet(true);
 		}
 
 		/**
@@ -175,6 +190,15 @@ namespace firy {
 				node = node->getByName(remain);
 				if (!node)
 					break;
+			}
+
+			if (node) {
+				auto dir = std::dynamic_pointer_cast<sDirectory>(node);
+				if (dir && !dir->entriesLoaded()) {
+					auto fs = dir->filesystemGet().lock();
+					if (!fs || !fs->filesystemDirectoryLoad(dir))
+						return 0;
+				}
 			}
 
 			return node;

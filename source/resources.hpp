@@ -34,10 +34,16 @@ namespace firy {
 		
 		bool FileSave(const std::string& pFile, const std::string& pData);
 		bool FileSave(const std::string& pFile, const spBuffer pData);
-
+		
 		size_t FileSize(const std::string& pFile) const;
 		bool FileExists(const std::string& pPath) const;
 		bool isFile(const std::string& pPath) const;
 
+	private:
+		std::string normalizePath(const std::string& pFile) const;
+		std::shared_ptr<std::shared_mutex> fileLock(const std::string& pFile) const;
+
+		mutable std::mutex	mFileMutex;
+		mutable std::map<std::string, std::shared_ptr<std::shared_mutex>>	mFileLocks;
 	};
 }

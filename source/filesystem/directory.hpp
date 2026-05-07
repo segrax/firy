@@ -36,7 +36,11 @@ namespace firy {
 			virtual bool remove() override;			// Remove from the file system
 			virtual bool isDirectory() const override { return true; }
 
+			inline bool entriesLoaded() const { return mNodesLoaded; }
+			inline void entriesLoadedSet(const bool pLoaded) { mNodesLoaded = pLoaded; }
+
 			std::vector<spNode> mNodes;
+			bool mNodesLoaded;
 		};
 	}
 

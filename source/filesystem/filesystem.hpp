@@ -69,6 +69,8 @@ namespace firy {
 			virtual size_t filesystemTotalBytesFree() = 0;
 			virtual size_t filesystemTotalBytesMax() = 0;
 
+			virtual bool filesystemDirectoryLoad(spDirectory pDir) { return true; }
+
 		protected:
 
 			virtual bool filesystemChainLoad(spFile pFile) = 0;
