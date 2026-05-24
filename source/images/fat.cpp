@@ -205,11 +205,14 @@ namespace firy {
 
 		tBlock cFAT::directorySectors(tBlock pStart) const {
 			tBlock totalClusters = 1;
+			auto maxClusters = (mClustersTotal ? mClustersTotal : (tBlock)mClusterMap.size());
+			tBlock traversed = 0;
 
-			while (pStart >= 2 && pStart < mClusterMap.size()) {
+			while (pStart >= 2 && pStart < mClusterMap.size() && traversed < maxClusters) {
 				pStart = fatSectorNext(pStart);
+				traversed++;
 
-				if(pStart)
+				if (pStart)
 					totalClusters++;
 			}
 
@@ -444,6 +447,9 @@ namespace firy {
 			else
 				block = clusterChainRead(pDir->mFirstCluster);
 
+			if (!block)
+				return false;
+
 			fat::sFileEntry* Entry = (fat::sFileEntry*) block->data();
 			fat::sFileEntry* LastEntry = Entry + (block->size() / sizeof(fat::sFileEntry));
 
@@ -591,6 +597,12 @@ namespace firy {
 				return {};
 
 			auto buffer = clusterChainRead(File->mFirstCluster);
+			if (!buffer)
+				return {};
+
+			if (File->sizeInBytesGet() > buffer->size())
+				return {};
+
 			buffer->resize(File->sizeInBytesGet());
 			return buffer;
 		}
