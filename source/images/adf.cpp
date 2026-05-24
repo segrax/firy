@@ -850,7 +850,7 @@ namespace firy {
 			entry->mParent = blockEntry->parent;
 
 			node->nameSet(std::string(blockEntry->name, min(blockEntry->nameLen, adf::gFilenameMaximumLength)));
-			node->sizeInBytesSet(blockEntry->byteSize);
+			node->sizeInBytesSet(blockEntry->byteSize < 0 ? 0 : (size_t)blockEntry->byteSize);
 
 			helpers::sDateTime dt;
 			adf::convertDaysToDate(blockEntry->days, &(dt.year), &(dt.month), &(dt.days));
@@ -957,7 +957,15 @@ namespace firy {
 				}
 			}
 
-			buffer->resize(pFile->sizeInBytesGet());
+			auto actualSize = buffer->size();
+			auto expectedSize = pFile->sizeInBytesGet();
+			if (expectedSize > actualSize) {
+				if (warning("filesystemRead: File size metadata exceeds available data")->isAborted())
+					return {};
+				expectedSize = actualSize;
+			}
+
+			buffer->resize(expectedSize);
 			return buffer;
 		}
 		
