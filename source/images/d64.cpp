@@ -355,10 +355,21 @@ namespace firy {
 					break;
 				}
 
+				size_t size = d64::gDataBytesPerSector;
 				// If track is zero, this is the last sector
-				auto size = sector->getByte(0) ? d64::gDataBytesPerSector : (sector->getByte(1) - 1);
+				if (!sector->getByte(0)) {
+					const auto bytesUsed = sector->getByte(1);
+					if (bytesUsed == 0) {
+						File->mChainBroken = true;
+						break;
+					}
+					size = bytesUsed - 1;
+				}
 
-				buffer->pushBuffer(sector, 2, size);
+				if (!buffer->pushBuffer(sector, 2, size)) {
+					File->mChainBroken = true;
+					break;
+				}
 			}
 
 			return buffer;
@@ -885,4 +896,3 @@ namespace firy {
 		}
 	}
 }
-
