@@ -108,7 +108,7 @@ namespace firy {
 				size_t size = Buffer->size() - offset;
 
 				// Read past end of buffer?
-				if (Buffer->size() < offset) {
+				if (Buffer->size() <= offset) {
 					return bytesRead;
 				}
 
@@ -148,7 +148,7 @@ namespace firy {
 				size_t size = Buffer->size() - offset;
 
 				// Write past end of buffer?
-				if (Buffer->size() < offset) {
+				if (Buffer->size() <= offset) {
 					return false;
 				}
 
@@ -184,7 +184,7 @@ namespace firy {
 				size_t size = Buffer->size() - offset;
 
 				// Write past end of buffer?
-				if (Buffer->size() < offset) {
+				if (Buffer->size() <= offset) {
 					return false;
 				}
 
