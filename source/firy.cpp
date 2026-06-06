@@ -25,6 +25,7 @@
 #include "images/d64.hpp"
 #include "images/adf.hpp"
 #include "images/fat.hpp"
+#include "images/iso9660.hpp"
 
 #include <filesystem>
 
@@ -210,6 +211,9 @@ namespace firy {
 		for (auto& ext : images::cFAT::imageExtensions()) {
 			extensions.push_back(ext);
 		}
+		for (auto& ext : images::cISO9660::imageExtensions()) {
+			extensions.push_back(ext);
+		}
 		return extensions;
 	}
 
@@ -246,6 +250,14 @@ namespace firy {
 		try {
 			if (!file && images::cFAT::imageTest(source)) {
 				file = openImageFile<images::cFAT>(source, options);
+			}
+		} catch (std::exception exception) {
+		}
+
+		// ISO9660 / ECMA-119 — CD-ROM cooked-mode images.
+		try {
+			if (!file && images::cISO9660::imageTest(source)) {
+				file = openImageFile<images::cISO9660>(source, options);
 			}
 		} catch (std::exception exception) {
 		}
