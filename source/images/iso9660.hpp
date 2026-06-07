@@ -217,6 +217,12 @@ namespace firy {
                                        uint32_t pLBA,
                                        uint32_t pSizeBytes);
 
+            // Validate an on-disk extent before using its untrusted size in
+            // sourceBufferCopy(), which allocates before it reads.
+            bool extentIsReadable(uint32_t pLBA,
+                                  uint32_t pSizeBytes,
+                                  uint64_t pMaxBytes) const;
+
             // Decode an iso9660 file identifier from its on-disk
             // representation. Strips the ";N" version suffix that retail CD
             // masters always carry, and trailing dots. If mIsJoliet is set

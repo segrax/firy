@@ -26,6 +26,11 @@
 #include <algorithm>
 #include <cstring>
 
+namespace {
+    constexpr uint64_t kMaxISO9660DirectoryExtentBytes = 64ULL * 1024ULL * 1024ULL;
+    constexpr uint64_t kMaxISO9660FileExtentBytes = 512ULL * 1024ULL * 1024ULL;
+}
+
 namespace firy {
     namespace images {
 
@@ -219,6 +224,10 @@ namespace firy {
             mRootExtentLBA = root->mExtentLocation.mLE;
             mRootExtentSize = root->mExtentSize.mLE;
 
+            if (!extentIsReadable(mRootExtentLBA, mRootExtentSize,
+                                  kMaxISO9660DirectoryExtentBytes))
+                return false;
+
             // Volume label — useful for diagnostics. Strip trailing spaces.
             std::string label(chosen->mVolumeIdentifier, sizeof(chosen->mVolumeIdentifier));
             // PVD strings are space-padded; Joliet are UCS-2BE space-padded.
@@ -229,6 +238,30 @@ namespace firy {
             while (!label.empty() && (label.back() == ' ' || label.back() == '\0'))
                 label.pop_back();
             filesystemNameSet(label);
+
+            return true;
+        }
+
+        bool cISO9660::extentIsReadable(uint32_t pLBA,
+                                          uint32_t pSizeBytes,
+                                          uint64_t pMaxBytes) const {
+            if (pSizeBytes == 0)
+                return true;
+
+            if (pLBA == 0 || pSizeBytes > pMaxBytes || !mSource)
+                return false;
+
+            const uint64_t offset = (uint64_t)pLBA * (uint64_t)iso9660::kSectorSize;
+            const uint64_t end = offset + (uint64_t)pSizeBytes;
+            if (end < offset)
+                return false;
+
+            const uint64_t sourceBytes = (uint64_t)sourceSize();
+            if (end > sourceBytes)
+                return false;
+
+            if (mVolumeSpaceBytes == 0 || end > mVolumeSpaceBytes)
+                return false;
 
             return true;
         }
@@ -247,6 +280,9 @@ namespace firy {
                                               uint32_t pLBA,
                                               uint32_t pSizeBytes) {
             if (pLBA == 0 || pSizeBytes == 0)
+                return false;
+
+            if (!extentIsReadable(pLBA, pSizeBytes, kMaxISO9660DirectoryExtentBytes))
                 return false;
 
             pDir->mNodes.clear();
@@ -311,19 +347,28 @@ namespace firy {
 
                     const bool isDir = (rec->mFileFlags & iso9660::eFF_Directory) != 0;
 
+                    const uint32_t extentLBA = rec->mExtentLocation.mLE;
+                    const uint32_t extentSize = rec->mExtentSize.mLE;
+                    const uint64_t maxExtentSize = isDir ? kMaxISO9660DirectoryExtentBytes
+                                                          : kMaxISO9660FileExtentBytes;
+                    if (!extentIsReadable(extentLBA, extentSize, maxExtentSize)) {
+                        pos += recLen;
+                        continue;
+                    }
+
                     if (isDir) {
                         // adf.cpp uses weak_from_this() (inherited from cImage)
                         // when building child filesystem nodes — same here.
                         auto childDir = std::make_shared<iso9660::sDir>(weak_from_this(), name);
-                        childDir->mExtentLBA = rec->mExtentLocation.mLE;
-                        childDir->mExtentSize = rec->mExtentSize.mLE;
+                        childDir->mExtentLBA = extentLBA;
+                        childDir->mExtentSize = extentSize;
                         childDir->entriesLoadedSet(false);
                         pDir->nodeAdd(childDir);
                     } else {
                         auto childFile = std::make_shared<iso9660::sFile>(weak_from_this(), name);
-                        childFile->mExtentLBA = rec->mExtentLocation.mLE;
-                        childFile->mExtentSize = rec->mExtentSize.mLE;
-                        childFile->sizeInBytesSet(rec->mExtentSize.mLE);
+                        childFile->mExtentLBA = extentLBA;
+                        childFile->mExtentSize = extentSize;
+                        childFile->sizeInBytesSet(extentSize);
                         pDir->nodeAdd(childFile);
                     }
 
@@ -363,6 +408,10 @@ namespace firy {
 
             if (file->mExtentSize == 0)
                 return std::make_shared<tBuffer>();    // empty file
+
+            if (!extentIsReadable(file->mExtentLBA, file->mExtentSize,
+                                  kMaxISO9660FileExtentBytes))
+                return {};
 
             // ISO9660 files are contiguous extents — one read does it.
             return sourceBufferCopy((size_t)file->mExtentLBA * iso9660::kSectorSize,
